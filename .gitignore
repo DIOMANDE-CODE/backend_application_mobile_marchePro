@@ -1,0 +1,23 @@
+# Fichiers Python
+*.pyc
+__pycache__/
+
+# Environnement virtuel
+venv/
+env/
+.env
+
+# Fichiers Django
+db.sqlite3
+*.log
+*.pot
+*.py[cod]
+*.sqlite3
+
+# JetBrains / VS Code
+.idea/
+.vscode/
+
+# Fichiers système
+.DS_Store
+Thumbs.db
