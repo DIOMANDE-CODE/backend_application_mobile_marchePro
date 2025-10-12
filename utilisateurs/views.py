@@ -106,26 +106,31 @@ def create_utilisateur(request):
 @api_view(['GET','PUT'])
 def detail_utilisateur(request):
 
-    try :
-        user = Utilisateur.objects.filter(email_utilisateur=request.user, is_active=True)
-    except Exception:
+    user = request.user
+
+    if not user.is_active:
         return Response({
-            "success":False,
-            "errors":"Cet utilisateur n'existe pas"
-        }, status=status.HTTP_400_BAD_REQUEST)
+            "success": False,
+            "errors": "Ce compte est désactivé."
+        }, status=status.HTTP_403_FORBIDDEN)
+    
     # Requette GET
     if request.method == 'GET':
         try :
             serializer = UtilisateurSerializer(user)
             return Response({
-                "success":True,
-                "data":serializer.data
-            }, status=status.HTTP_200_OK)
-        except Exception:
+                    "success":True,
+                    "data":serializer.data
+                }, status=status.HTTP_200_OK)
+        except Exception as e :
+            import traceback
+            traceback.print_exc()
+            print(Exception)
             return Response({
                 "success":False,
-                "errors":serializer.errors
-            }, status=status.HTTP_400_BAD_REQUEST)
+                "errors":"Erreur interne du serveur",
+                "message":str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
     # Requette PUT
     if request.method == 'PUT':

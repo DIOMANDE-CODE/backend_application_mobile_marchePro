@@ -7,7 +7,7 @@ import uuid
 
 # Définition de la photo de profil par defaut
 def photo_profil_par_defaut():
-    return 'photo-profil-defaut.jpg'
+    return 'media/photo-profil-defaut.jpg'
 
 # Definition des roles de l'utilisateur
 ROLE_CHOICES = (
@@ -52,7 +52,7 @@ class Utilisateur(AbstractBaseUser, PermissionsMixin):
     identifiant_utilisateur = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     email_utilisateur = models.EmailField(max_length=50, unique=True, verbose_name="Email")
     nom_utilisateur = models.CharField(max_length=150, blank=True, null=True, verbose_name="Nom utilisateur")
-    photo_profil_utilisateur = models.ImageField(upload_to='photo_profil_utilisateur/', default=photo_profil_par_defaut, blank=True, null=True, verbose_name='Photo de profil utilisateur')
+    photo_profil_utilisateur = models.ImageField(upload_to='media/photo_profil_utilisateur/', default=photo_profil_par_defaut, blank=True, null=True, verbose_name='Photo de profil utilisateur')
     numero_telephone_utilisateur = models.CharField(max_length=15, validators=[verification_numero],null=True, blank=True, verbose_name="Numero de téléphone")
     role = models.CharField(max_length=10, choices=ROLE_CHOICES, default="vendeur", verbose_name="role utilisateur")
     date_creation = models.DateTimeField(auto_now_add=True)
