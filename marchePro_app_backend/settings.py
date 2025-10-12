@@ -12,7 +12,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 from pathlib import Path
 import os
-from decouple import config
+from decouple import config, Csv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
+    'rest_framework.authtoken',
     'corsheaders',
 
     # liste des applications
@@ -144,16 +145,28 @@ AUTH_USER_MODEL = 'utilisateurs.Utilisateur'
 # Configuration REST_FRAMEWORK
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'rest_framework.authentication.TokenAuthentication',
     ],
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
     ],
-    'EXCEPTION_HANDLER': 'utils.exceptions.custom_exception_handler',
 }
 
 # Configuration CORS
-ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS','').split(',')
-CORS_ALLOWED_ORIGINS = os.environ.get('CORS_ALLOWED_ORIGINS','').split(',')
+ALLOWED_HOSTS = config("ALLOWED_HOSTS", default="localhost", cast=Csv())
+CORS_ALLOWED_ORIGINS = config("CORS_ALLOWED_ORIGINS", default="", cast=Csv())
+CSRF_TRUSTED_ORIGINS = config("CSRF_TRUSTED_ORIGINS", default="", cast=Csv())
 
-# CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_CREDENTIALS = True
+
+# Sessions
+SESSION_COOKIE_SECURE = False  # True en production HTTPS
+SESSION_COOKIE_HTTPONLY = True # empêche accès via JS côté client
+SESSION_COOKIE_SAMESITE = 'Lax' # ou 'None' pour cross-site (avec HTTPS)
+CSRF_COOKIE_SECURE = False      # True en prod HTTPS
+CSRF_COOKIE_HTTPONLY = False    # doit être False pour les SPA
+CSRF_COOKIE_SAMESITE = 'Lax'    # ou 'None' si cross-site
+SESSION_COOKIE_AGE = 1209600
+SESSION_SAVE_EVERY_REQUEST = True  # Prolonge la session à chaque requête
+SESSION_COOKIE_HTTPONLY = True
+CORS_ALLOW_CREDENTIALS = True

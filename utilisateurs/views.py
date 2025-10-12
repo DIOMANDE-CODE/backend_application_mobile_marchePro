@@ -9,6 +9,7 @@ from permissions import EstAdministrateur, EstGerant
 
 from .models import Utilisateur
 from .serializers import UtilisateurSerializer
+from django.views.decorators.csrf import csrf_exempt
 
 import re
 
@@ -33,6 +34,7 @@ def list_utilisateur(request):
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 # Fonction de creation d'un utilisateur
+@csrf_exempt
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def create_utilisateur(request):
