@@ -107,6 +107,8 @@ def create_utilisateur(request):
 def detail_utilisateur(request):
 
     user = request.user
+    numero = request.data.get('numero_telephone_utilisateur')
+
 
     if not user.is_active:
         return Response({
@@ -134,6 +136,23 @@ def detail_utilisateur(request):
     
     # Requette PUT
     if request.method == 'PUT':
+
+        # Verifier le numero
+        if numero.isdigit():
+            pattern = r'^(?:\+225|00225)?(01|05|07|25|27)\d{8}$'
+            if not re.match(pattern,numero):
+                return Response({
+                    "success":False,
+                    "errors":"Numéro invalide (ex: +2250102030405 ou 0102030405)."
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+        if Utilisateur.objects.filter(numero_telephone_utilisateur=numero).exists():
+            return Response({
+                        "success":False,
+                        "errors":"Ce numéro existe dejà"
+                    }, status=status.HTTP_400_BAD_REQUEST)
+            
+
         try :
             serializer = UtilisateurSerializer(user, data=request.data, partial=True)
             if serializer.is_valid():
