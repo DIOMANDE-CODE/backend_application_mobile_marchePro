@@ -88,6 +88,7 @@ def create_client(request):
 # Voir et modifier les details du Client
 @api_view(['GET','PUT'])
 def detail_client(request,identifiant):
+    nom = request.data.get('nom_client')
     numero = request.data.get('numero_telephone_client')
     print(identifiant)
 
@@ -129,6 +130,13 @@ def detail_client(request,identifiant):
     
     # Requette PUT
     if request.method == 'PUT':
+        # Verifier numero et nom
+        if  not numero or not nom : 
+            return Response({
+                "success":False,
+                "errors":"Tous les champs sont obligatoires"
+            }, status=status.HTTP_400_BAD_REQUEST)
+
         if numero.isdigit():
             pattern = r'^(?:\+225|00225)?(01|05|07|25|27)\d{8}$'
             if not re.match(pattern,numero):

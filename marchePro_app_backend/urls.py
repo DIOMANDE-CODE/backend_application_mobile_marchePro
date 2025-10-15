@@ -24,6 +24,7 @@ urlpatterns = [
     path('utilisateurs/', include('utilisateurs.urls')),
     path('authentification/', include('authentification.urls')),
     path('clients/', include('clients.urls')),
+    path('produits/', include('produits.urls')),
 ]
 
 if settings.DEBUG == True:

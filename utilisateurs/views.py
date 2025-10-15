@@ -57,26 +57,33 @@ def create_utilisateur(request):
         return Response({
             "success":False,
             "errors":"Email invalide"
-        })
+        }, status=status.HTTP_400_BAD_REQUEST)
     if numero.isdigit():
         pattern = r'^(?:\+225|00225)?(01|05|07|25|27)\d{8}$'
         if not re.match(pattern,numero):
             return Response({
                 "success":False,
-                "errors":"Numéro invalide (ex: +2250102030405 ou 0102030405)."
+                "errors":"Numéro invalide (respecter le format des numeros ivoiriens)."
             }, status=status.HTTP_400_BAD_REQUEST)
     else:
         return Response({
                 "success":False,
-                "errors":"Numéro invalide (ex: +2250102030405 ou 0102030405)."
+                "errors":"Numéro invalide (respecter le format des numeros ivoiriens)."
             }, status=status.HTTP_400_BAD_REQUEST)
         
     # Verfier que l'utilisateur n'existe pas
-    if Utilisateur.objects.filter(email_utilisateur=email, numero_telephone_utilisateur=numero).exists():
+    if Utilisateur.objects.filter(email_utilisateur=email).exists():
         return Response({
             "success":False,
             "errors":"Cet utilisateur existe dejà"
-        })
+        }, status=status.HTTP_409_CONFLICT)
+    
+    # Verifier que le numero n'existe pas
+    if Utilisateur.objects.filter(numero_telephone_utilisateur=numero).exists():
+        return Response({
+            "success":False,
+            "errors":"Cet Numéro existe dejà"
+        }, status=status.HTTP_409_CONFLICT)
     
     # Création du compte
     try :
@@ -107,6 +114,8 @@ def create_utilisateur(request):
 def detail_utilisateur(request):
 
     user = request.user
+    nom = request.data.get('nom_utilisateur')
+    email = request.data.get('email_utilisateur')
     numero = request.data.get('numero_telephone_utilisateur')
 
 
@@ -137,21 +146,29 @@ def detail_utilisateur(request):
     # Requette PUT
     if request.method == 'PUT':
 
+        # Verifier email, numero et nom
+        if not email or not numero or not nom : 
+            return Response({
+                "success":False,
+                "errors":"Tous les champs sont obligatoires"
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        try :
+            validate_email(email)
+        except ValidationError:
+            return Response({
+                "success":False,
+                "errors":"Email invalide"
+            }, status=status.HTTP_400_BAD_REQUEST)
+
         # Verifier le numero
         if numero.isdigit():
             pattern = r'^(?:\+225|00225)?(01|05|07|25|27)\d{8}$'
             if not re.match(pattern,numero):
                 return Response({
                     "success":False,
-                    "errors":"Numéro invalide (ex: +2250102030405 ou 0102030405)."
+                    "errors":"Numero invalide (respecter le format des numeros ivoiriens)"
                 }, status=status.HTTP_400_BAD_REQUEST)
-            
-        if Utilisateur.objects.filter(numero_telephone_utilisateur=numero).exists():
-            return Response({
-                        "success":False,
-                        "errors":"Ce numéro existe dejà"
-                    }, status=status.HTTP_400_BAD_REQUEST)
-            
 
         try :
             serializer = UtilisateurSerializer(user, data=request.data, partial=True)

@@ -64,7 +64,7 @@ def login_utilisateur(request):
         return Response({
             "success": False,
             "errors": "Identifiant invalide"
-        }, status=status.HTTP_400_BAD_REQUEST)
+        }, status=status.HTTP_401_UNAUTHORIZED)
     except Exception as e :
         import traceback
         traceback.print_exc()
