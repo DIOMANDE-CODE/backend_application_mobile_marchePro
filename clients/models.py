@@ -20,3 +20,6 @@ class Client(models.Model):
     date_creation = models.DateTimeField(auto_now_add=True)
     date_modification = models.DateTimeField(auto_now = True)
 
+    def __str__(self):
+        return self.nom_client
+

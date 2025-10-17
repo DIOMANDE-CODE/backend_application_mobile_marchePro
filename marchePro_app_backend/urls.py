@@ -25,6 +25,8 @@ urlpatterns = [
     path('authentification/', include('authentification.urls')),
     path('clients/', include('clients.urls')),
     path('produits/', include('produits.urls')),
+    path('ventes/', include('ventes.urls')),
+    path('statistiques/', include('statistiques.urls')),
 ]
 
 if settings.DEBUG == True:

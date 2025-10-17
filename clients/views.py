@@ -11,6 +11,7 @@ from .models import Client
 from .serializers import ClientSerializer
 
 import re
+from datetime import date
 
 # Create your views here.
 
@@ -19,7 +20,7 @@ import re
 @permission_classes([AllowAny])
 def list_client(request):
     try :
-        clients = Client.objects.all()
+        clients = Client.objects.filter(date_creation__date=date.today()).order_by('-date_creation')
         serializer = ClientSerializer(clients, many=True)
         return Response({
             "success":True,
@@ -51,7 +52,7 @@ def create_client(request):
         if not re.match(pattern,numero):
             return Response({
                 "success":False,
-                "errors":"Numéro invalide (ex: +2250102030405 ou 0102030405)."
+                "errors":"Numero invalide (respecter le format des numeros ivoiriens)"
             }, status=status.HTTP_400_BAD_REQUEST)
         
     # Verifier que le Client n'existe pas
@@ -142,7 +143,7 @@ def detail_client(request,identifiant):
             if not re.match(pattern,numero):
                 return Response({
                     "success":False,
-                    "errors":"Numéro invalide (ex: +2250102030405 ou 0102030405)."
+                    "errors":"Numero invalide (respecter le format des numeros ivoiriens)"
                 }, status=status.HTTP_400_BAD_REQUEST)
 
         try :

@@ -189,7 +189,7 @@ def delete_Categorie(request, identifiant):
 @permission_classes([AllowAny])
 def list_produit(request):
     try :
-        produits = Produit.objects.all()
+        produits = Produit.objects.all().order_by('-date_creation')
         serializer = ProduitSerializer(produits, many=True)
         return Response({
             "success":True,
