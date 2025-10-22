@@ -9,7 +9,7 @@ from django.contrib.auth import authenticate
 from rest_framework.authtoken.models import Token
 
 from utilisateurs.models import Utilisateur
-
+from utilisateurs.serializers import UtilisateurSerializer
 # Create your views here.
 
 # Fonction de connexion
@@ -56,10 +56,12 @@ def login_utilisateur(request):
         user = authenticate(request, username=email, password=password)
         if user is not None:
             token, _ = Token.objects.get_or_create(user=user)
+            info_user = UtilisateurSerializer(user).data
             return Response({
             "success": True,
             "message": "Connexion établie",
-            "token": token.key
+            "token": token.key,
+            "user":info_user,
             }, status=status.HTTP_200_OK)
         return Response({
             "success": False,

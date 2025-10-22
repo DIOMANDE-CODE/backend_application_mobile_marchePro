@@ -1,6 +1,7 @@
 from django.db import models
 import uuid
 from django.core.validators import MinValueValidator
+from django.core.exceptions import ValidationError
 
 # Create your models here.
 
@@ -36,6 +37,28 @@ class Produit(models.Model):
     date_creation = models.DateTimeField(auto_now_add=True)
     date_modification = models.DateTimeField(auto_now=True)
 
+    def clean(self):
+        if self.quantite_produit_disponible < 0:
+            raise ValidationError("La quantité disponible ne peut pas être négative.")
+        
+    def save(self, *args, **kwargs):
+        self.clean()
+        super().save(*args, **kwargs)
+
+        # Vérification automatique du stock faible
+        if self.quantite_produit_disponible <= self.seuil_alerte_produit:
+            # Vérifie si une alerte existe déjà
+            alerte_existante = AlertProduit.objects.filter(produit=self, statut_alerte=False).first()
+            if not alerte_existante:
+                AlertProduit.objects.create(
+                    produit=self,
+                    message_alerte=f"Le stock du produit '{self.nom_produit}' est faible ({self.quantite_produit_disponible} restants)."
+                )
+        else:
+            # Si le stock est revenu à la normale, fermer l’alerte
+            AlertProduit.objects.filter(produit=self, statut_alerte=False).update(statut_alerte=True)
+
+
     def __str__(self):
         return self.nom_produit
 
@@ -46,5 +69,4 @@ class AlertProduit(models.Model):
     produit = models.ForeignKey(Produit, on_delete=models.CASCADE, verbose_name="alert_produit")
     message_alerte = models.CharField(max_length=50, null=True, blank=True)
     statut_alerte = models.BooleanField(default=False)
-
     date_alerte = models.DateTimeField(auto_now_add=True)

@@ -7,8 +7,8 @@ from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
 from permissions import EstAdministrateur, EstGerant
 
-from .models import Categorie, Produit
-from .serializers import CategorieSerializer, ProduitSerializer
+from .models import Categorie, Produit, AlertProduit
+from .serializers import CategorieSerializer, ProduitSerializer, AlertProduitSerializer
 from decimal import Decimal
 from django.shortcuts import get_object_or_404
 import os
@@ -411,5 +411,26 @@ def delete_produit(request, identifiant):
             "message": str(e)
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+
+# Fonction sur les alertes de stock faible
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def alertes_actives(request):
+    try:
+        alertes = AlertProduit.objects.filter(statut_alerte=False).order_by('-date_alerte')
+        serializer = AlertProduitSerializer(alertes, many=True)
+        return Response({
+            "success": True,
+            "data": serializer.data
+        }, status=status.HTTP_200_OK)
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        print(Exception)
+        return Response({
+            "success": False,
+            "errors": "Erreur interne du serveur",
+            "message": str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 

@@ -22,4 +22,4 @@ class AlertProduitSerializer(serializers.ModelSerializer):
     class Meta:
         model = AlertProduit
         fields = '__all__'
-        read_only_fields = ['identifiant_produit','produit','date_creation']
+        read_only_fields = ['identifiant_alerte','produit','date_creation']
