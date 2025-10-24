@@ -32,7 +32,6 @@ def creer_vente(request):
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['GET'])
-@permission_classes([AllowAny])
 def liste_ventes(request):
     try :
         ventes = Vente.objects.filter(date_vente__date=date.today()).order_by('-date_vente')
@@ -47,6 +46,30 @@ def liste_ventes(request):
             "errors":"Erreur interne du serveur",
             "message":str(e)
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+
+@api_view(['GET'])
+def liste_ventes_par_vendeur(request):
+    user = request.user
+    if user.role != "vendeur":
+        return Response({
+            "success": False,
+            "errors": "Accès refusé. Cette vue est réservée aux vendeurs."
+        }, status=403)
+    else :
+        try :
+            ventes = Vente.objects.filter(date_vente__date=date.today(), utilisateur=user).order_by('-date_vente')
+            serializer = VoirVenteSerializer(ventes, many=True)
+            return Response({
+                "success":True,
+                "data":serializer.data
+            }, status=status.HTTP_200_OK)
+        except Exception as e :
+            return Response({
+                "success":False,
+                "errors":"Erreur interne du serveur",
+                "message":str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
 
 @api_view(['GET'])

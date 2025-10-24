@@ -3,12 +3,55 @@ from rest_framework.response import Response
 from datetime import date, timedelta
 
 from ventes.models import Vente
-from produits.models import Produit
+from produits.models import Produit, AlertProduit
 from clients.models import Client
 from ventes.models import DetailVente
 from django.db.models import Sum
 import calendar
 # Create your views here.
+
+# Vue des statistiqes quotidiennes par vendeurs
+@api_view(['GET'])
+def statistiques_quotidiennes_vendeur(request):
+    user = request.user
+    if user.role != 'vendeur':
+        return Response({
+            "success": False,
+            "errors": "Accès refusé. Cette vue est réservée aux vendeurs."
+        }, status=403)
+    else :
+        aujourd_hui = date.today()
+        try :
+            # Somme de toutes les quantités vendues aujourd'hui par le vendeur connecté
+            ventes_du_aujourdhui = Vente.objects.filter(utilisateur=user, date_vente__date=aujourd_hui)
+            total_ventes_aujourd_hui = sum(vente.total_ttc for vente in ventes_du_aujourdhui)
+
+            # Produit en stock
+            total_produits_en_stock = Produit.objects.filter(quantite_produit_disponible__gte=1).count()
+
+            # nombre de clients du jour
+            total_clients_aujourd_hui = Client.objects.filter(date_creation__date=aujourd_hui).count()
+
+            # nombre totale de produits avec stocks faibles
+            nombre_produits_stocks_faibles = AlertProduit.objects.filter(statut_alerte=False).count()
+
+            return Response({
+            "success":True,
+            "data":{
+                "total_ventes_aujourd_hui": total_ventes_aujourd_hui,
+                "total_produits_en_stock": total_produits_en_stock,
+                "total_clients_aujourd_hui": total_clients_aujourd_hui,
+                "nombre_produits_stocks_faibles": nombre_produits_stocks_faibles,
+            }
+        }, status=200)
+        except Exception as e :
+            import traceback
+            traceback.print_exc()
+            return Response({
+                "success":False,
+                "errors":"Erreur interne du serveur",
+                "message":str(e)
+            }, status=500)
 
 # Vue pour obtenir des statistiques du jour
 @api_view(['GET'])
@@ -23,7 +66,7 @@ def statistiques_du_jour(request):
         total_ventes_aujourd_hui = sum(vente.total_ttc for vente in ventes_aujourd_hui)
 
         # Produit en stock
-        total_produits_en_stock = Produit.objects.count()
+        total_produits_en_stock = Produit.objects.filter(quantite_produit_disponible__gte=1).count()
 
         # nombre de clients du jour
         total_clients_aujourd_hui = Client.objects.filter(date_creation__date=aujourd_hui).count()
@@ -48,6 +91,8 @@ def statistiques_du_jour(request):
             .order_by('-qte_vendue')[:3]  # limite à 3
         )
 
+        # nombre totale de produits avec stocks faibles
+        nombre_produits_stocks_faibles = AlertProduit.objects.filter(statut_alerte=False).count()
 
         return Response({
             "success":True,
@@ -58,6 +103,7 @@ def statistiques_du_jour(request):
                 "nombre_produits_vendus_aujourd_hui": nombre_produits_vendus,
                 "panier_moyen_aujourd_hui": panier_moyen_aujourd_hui,
                 "top_produits_aujourd_hui": list(top_produits_aujourd_hui),
+                "nombre_produits_stocks_faibles": nombre_produits_stocks_faibles,
             }
         }, status=200)
     except Exception as e :
