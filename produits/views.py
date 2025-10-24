@@ -19,6 +19,7 @@ import os
 
 # Lister les categories
 @api_view(['GET'])
+@permission_classes([EstAdministrateur])
 def list_categorie(request):
     try :
         categories = Categorie.objects.all()
@@ -37,6 +38,7 @@ def list_categorie(request):
 
 # Ajouter une catégorie
 @api_view(['GET'])
+@permission_classes([EstAdministrateur])
 def create_categorie(request):
     print(request.data)
     nom = request.data.get('nom_categorie')
@@ -82,6 +84,7 @@ def create_categorie(request):
     
 # Voir et modifier les details categorie
 @api_view(['GET','PUT'])
+@permission_classes([EstAdministrateur])
 def detail_categorie(request,identifiant):
     nom = request.data.get('nom_categorie')
 
@@ -155,7 +158,7 @@ def detail_categorie(request,identifiant):
         
 # Requette DELETE
 @api_view(['DELETE'])
-@permission_classes([EstGerant, EstAdministrateur])
+@permission_classes([EstAdministrateur])
 def delete_Categorie(request, identifiant):
     try :
         categorie = Categorie.objects.get(identifiant_client=identifiant)
@@ -187,6 +190,7 @@ def delete_Categorie(request, identifiant):
 # Lister les produits
 @api_view(['GET'])
 @permission_classes([AllowAny])
+@permission_classes([EstAdministrateur])
 def list_produit(request):
     try :
         produits = Produit.objects.all().order_by('-date_creation')
@@ -208,6 +212,7 @@ def list_produit(request):
 
 # Ajouter un produit
 @api_view(['POST'])
+@permission_classes([EstAdministrateur])
 def create_produit(request):
     nom = request.data.get('nom_produit')
     prix_unitaire = Decimal(request.data.get('prix_unitaire_produit'))
@@ -281,6 +286,7 @@ def create_produit(request):
     
 # Voir et modifier les details du Client
 @api_view(['GET','PUT'])
+@permission_classes([EstAdministrateur])
 def detail_produit(request,identifiant):
     nom = request.data.get('nom_categorie')
 
@@ -386,7 +392,7 @@ def detail_produit(request,identifiant):
         
 # Requette DELETE
 @api_view(['DELETE'])
-@permission_classes([EstGerant, EstAdministrateur])
+@permission_classes([EstAdministrateur])
 def delete_produit(request, identifiant):
     try :
         produit = Produit.objects.get(identifiant_produit=identifiant)
@@ -414,7 +420,6 @@ def delete_produit(request, identifiant):
 
 # Fonction sur les alertes de stock faible
 @api_view(["GET"])
-@permission_classes([AllowAny])
 def alertes_actives(request):
     try:
         alertes = AlertProduit.objects.filter(statut_alerte=False).order_by('-date_alerte')

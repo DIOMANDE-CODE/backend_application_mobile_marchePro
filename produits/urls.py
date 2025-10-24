@@ -17,3 +17,4 @@ urlpatterns = [
     # Alertes de stock faible
     path('alerte/stock_faible/', alertes_actives,name='alertes_actives'),
 ]
+    

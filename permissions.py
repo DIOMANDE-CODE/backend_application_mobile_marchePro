@@ -4,7 +4,7 @@ from rest_framework.permissions import BasePermission
 # verifier que l'utilisateur connecté est l'admin
 class EstAdministrateur(BasePermission):
     def has_permission(self, request, view):
-        return request.user.authenticated and request.user.role == 'admin'  
+        return request.user.authenticated and request.user.role == 'admin'
 
 
 # verifier que l'utilisateur connecté est le gérant

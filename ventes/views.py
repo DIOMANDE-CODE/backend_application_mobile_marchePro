@@ -73,7 +73,7 @@ def liste_ventes_par_vendeur(request):
     
 
 @api_view(['GET'])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def detail_ventes(request, vente_id):
     try:
         vente = Vente.objects.get(identifiant_vente=vente_id)

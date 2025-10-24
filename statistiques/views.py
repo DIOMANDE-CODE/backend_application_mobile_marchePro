@@ -1,4 +1,4 @@
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from datetime import date, timedelta
 
@@ -8,6 +8,7 @@ from clients.models import Client
 from ventes.models import DetailVente
 from django.db.models import Sum
 import calendar
+from permissions import EstAdministrateur
 # Create your views here.
 
 # Vue des statistiqes quotidiennes par vendeurs
@@ -55,6 +56,7 @@ def statistiques_quotidiennes_vendeur(request):
 
 # Vue pour obtenir des statistiques du jour
 @api_view(['GET'])
+@permission_classes([EstAdministrateur])
 def statistiques_du_jour(request):
     # Obtenir la date actuelle
     aujourd_hui = date.today()
@@ -117,6 +119,7 @@ def statistiques_du_jour(request):
 
 
 @api_view(['GET'])
+@permission_classes([EstAdministrateur])
 def statistiques_de_la_semaine(request):
     # Obtenir la date actuelle
     aujourd_hui = date.today()
@@ -179,6 +182,7 @@ def statistiques_de_la_semaine(request):
 
 # Rapports mois
 @api_view(['GET'])
+@permission_classes([EstAdministrateur])
 def statistiques_du_mois(request):
     # Obtenir la date actuelle
     aujourd_hui = date.today()

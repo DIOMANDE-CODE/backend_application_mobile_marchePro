@@ -17,7 +17,7 @@ from datetime import date
 
 # Fonction pour lister les Clients
 @api_view(['GET'])
-@permission_classes([AllowAny])
+@permission_classes([EstAdministrateur])
 def list_client(request):
     try :
         clients = Client.objects.filter(date_creation__date=date.today()).order_by('-date_creation')
@@ -88,6 +88,7 @@ def create_client(request):
 
 # Voir et modifier les details du Client
 @api_view(['GET','PUT'])
+@permission_classes([EstAdministrateur])
 def detail_client(request,identifiant):
     nom = request.data.get('nom_client')
     numero = request.data.get('numero_telephone_client')
@@ -169,7 +170,7 @@ def detail_client(request,identifiant):
         
 # Requette DELETE
 @api_view(['DELETE'])
-@permission_classes([EstGerant, EstAdministrateur])
+@permission_classes([EstAdministrateur])
 def delete_Client(request, identifiant):
     try :
         client = Client.objects.get(identifiant_client=identifiant)

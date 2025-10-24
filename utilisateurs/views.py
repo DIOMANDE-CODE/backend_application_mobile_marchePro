@@ -17,7 +17,7 @@ import re
 
 # Fonction pour lister les utilisateurs
 @api_view(['GET'])
-@permission_classes([AllowAny])
+@permission_classes([EstAdministrateur])
 def list_utilisateur(request):
     try :
         user = Utilisateur.objects.all().filter(role='vendeur')
@@ -36,7 +36,7 @@ def list_utilisateur(request):
 # Fonction de creation d'un utilisateur
 @csrf_exempt
 @api_view(['POST'])
-@permission_classes([AllowAny])
+@permission_classes([EstAdministrateur])
 def create_utilisateur(request):
     print(request.data)
     nom = request.data.get('nom_utilisateur')
@@ -111,6 +111,7 @@ def create_utilisateur(request):
 
 # Voir et modifier les details de l'utilisateur connecté
 @api_view(['GET','PUT'])
+@permission_classes([EstAdministrateur])
 def detail_utilisateur(request):
 
     user = request.user
@@ -193,7 +194,7 @@ def detail_utilisateur(request):
         
 # Requette DELETE
 @api_view(['DELETE'])
-@permission_classes([EstGerant, EstAdministrateur])
+@permission_classes([EstAdministrateur])
 def delete_utilisateur(request, id):
     try:
         # Vérifier l'existence de l'utilisateur
