@@ -111,7 +111,7 @@ def check_session(request):
         }, status=status.HTTP_400_BAD_REQUEST)
 
     try:
-        # Vérifie si le token existe
+        # Vérifie si le token existe dans la table Token
         token = Token.objects.filter(key=token_key).first()
 
         if token:
