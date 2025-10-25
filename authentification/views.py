@@ -82,6 +82,7 @@ def login_utilisateur(request):
 def logout_utilisateur(request):
     try :
         token_key = request.auth.key
+        print(token_key)
         Token.objects.filter(key=token_key).delete()
     except Exception as e :
         import traceback
@@ -97,13 +98,39 @@ def logout_utilisateur(request):
                 "message":"Compte déconnecté"
             }, status=status.HTTP_200_OK)
 
-@api_view(['GET'])
+@api_view(['POST'])
+@permission_classes([AllowAny])
 def check_session(request):
-    if request.user.is_authenticated:
+    token_key = request.data.get('token_key')
+
+    if not token_key:
         return Response({
-            "authenticated":True,
-            "nom":request.user.nom_utilisateur
-        })
-    return Response({
-        "authenticated": False
-    }, status=status.HTTP_401_UNAUTHORIZED)
+            "success": False,
+            "authenticated": False,
+            "message": "Token manquant"
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        # Vérifie si le token existe
+        token = Token.objects.filter(key=token_key).first()
+
+        if token:
+            return Response({
+                "success": True,
+                "authenticated": True,
+            }, status=status.HTTP_200_OK)
+        else:
+            return Response({
+                "success": False,
+                "authenticated": False,
+                "message": "Token invalide ou expiré"
+            }, status=status.HTTP_401_UNAUTHORIZED)
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return Response({
+            "success": False,
+            "errors": "Erreur interne du serveur",
+            "message": str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

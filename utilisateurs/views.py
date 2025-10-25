@@ -36,7 +36,6 @@ def list_utilisateur(request):
 # Fonction de creation d'un utilisateur
 @csrf_exempt
 @api_view(['POST'])
-@permission_classes([EstAdministrateur])
 def create_utilisateur(request):
     print(request.data)
     nom = request.data.get('nom_utilisateur')
@@ -111,7 +110,6 @@ def create_utilisateur(request):
 
 # Voir et modifier les details de l'utilisateur connecté
 @api_view(['GET','PUT'])
-@permission_classes([EstAdministrateur])
 def detail_utilisateur(request):
 
     user = request.user
