@@ -10,6 +10,8 @@ from permissions import EstAdministrateur, EstGerant
 from .models import Client
 from .serializers import ClientSerializer
 
+from rest_framework.pagination import LimitOffsetPagination
+
 import re
 from datetime import date
 
@@ -21,10 +23,17 @@ from datetime import date
 def list_client(request):
     try :
         clients = Client.objects.filter(date_creation__date=date.today()).order_by('-date_creation')
-        serializer = ClientSerializer(clients, many=True)
+
+        # Pagination
+        pagination = LimitOffsetPagination()
+        pagination.default_limit = 10
+        clients_page = pagination.paginate_queryset(clients,request)
+
+        serializer = ClientSerializer(clients_page, many=True)
+        pagination_response = pagination.get_paginated_response(serializer.data)
         return Response({
             "success":True,
-            "data":serializer.data
+            "data":pagination_response.data
         }, status=status.HTTP_200_OK)
     except Exception as e :
         return Response({

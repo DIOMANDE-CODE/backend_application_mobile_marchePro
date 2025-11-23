@@ -5,6 +5,7 @@ from rest_framework import status
 from .serializers import VenteCreateSerializer, VoirVenteSerializer
 from .models import Vente
 from datetime import date
+from rest_framework.pagination import LimitOffsetPagination
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
@@ -35,10 +36,18 @@ def creer_vente(request):
 def liste_ventes(request):
     try :
         ventes = Vente.objects.filter(date_vente__date=date.today()).order_by('-date_vente')
-        serializer = VoirVenteSerializer(ventes, many=True)
+
+        # pagination
+        pagination = LimitOffsetPagination()
+        pagination.default_limit = 7
+        ventes_page = pagination.paginate_queryset(ventes,request)
+        serializer = VoirVenteSerializer(ventes_page, many=True)
+        pagination_response = pagination.get_paginated_response(serializer.data)
+
+
         return Response({
             "success":True,
-            "data":serializer.data
+            "data":pagination_response.data
         }, status=status.HTTP_200_OK)
     except Exception as e :
         return Response({

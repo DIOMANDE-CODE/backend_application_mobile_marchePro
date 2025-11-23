@@ -13,12 +13,15 @@ from decimal import Decimal
 from django.shortcuts import get_object_or_404
 import os
 
+from rest_framework.pagination import LimitOffsetPagination
+
 # Create your views here.
 
 # """ Fonctiionnalités du modèle Categorie """"
 
 # Lister les categories
 @api_view(['GET'])
+# @permission_classes([EstAdministrateur])
 @permission_classes([EstAdministrateur])
 def list_categorie(request):
     try :
@@ -37,7 +40,7 @@ def list_categorie(request):
     
 
 # Ajouter une catégorie
-@api_view(['GET'])
+@api_view(['POST'])
 @permission_classes([EstAdministrateur])
 def create_categorie(request):
     print(request.data)
@@ -189,15 +192,23 @@ def delete_Categorie(request, identifiant):
 
 # Lister les produits
 @api_view(['GET'])
-@permission_classes([AllowAny])
 @permission_classes([EstAdministrateur])
+@permission_classes([EstGerant])
 def list_produit(request):
     try :
         produits = Produit.objects.all().order_by('-date_creation')
-        serializer = ProduitSerializer(produits, many=True)
+        # Pagination
+        paginator = LimitOffsetPagination()
+        paginator.default_limit = 7
+        produits_page = paginator.paginate_queryset(produits, request) 
+
+
+        serializer = ProduitSerializer(produits_page, many=True)
+        paginator_response = paginator.get_paginated_response(serializer.data)
+
         return Response({
             "success":True,
-            "data":serializer.data
+            "data": paginator_response.data
         }, status=status.HTTP_200_OK)
     except Exception as e :
         import traceback

@@ -13,6 +13,8 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 from pathlib import Path
 import os
 from decouple import config, Csv
+from dotenv import load_dotenv
+load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -92,6 +94,17 @@ DATABASES = {
         'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
+
+# DATABASES = {
+#     'default': {
+#         'ENGINE':os.getenv("ENGINE"),
+#         'NAME':os.getenv("NAME"),
+#         'USER':os.getenv("USER"),
+#         'PASSWORD':os.getenv("PASSWORD"),
+#         'HOST':os.getenv("HOST"),
+#         'PORT':os.getenv("PORT"),
+#     }
+# }
 
 
 # Password validation
