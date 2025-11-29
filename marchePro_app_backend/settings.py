@@ -170,7 +170,8 @@ REST_FRAMEWORK = {
     'DEFAULT_THROTTLE_RATES': {
         'anon': '20/min',
         'user': '100/min'
-    }
+    },
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }
 
 
@@ -192,3 +193,10 @@ SESSION_COOKIE_AGE = 1209600
 SESSION_SAVE_EVERY_REQUEST = True  # Prolonge la session à chaque requête
 SESSION_COOKIE_HTTPONLY = True
 CORS_ALLOW_CREDENTIALS = True
+
+# Configuration de la documentation avec drf-spectacular
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'Mon serveur de MarchePro',
+    'VERSION': '1.0.0',
+    'DESCRIPTION': 'Documentation officielle du serveur.',
+}
