@@ -15,6 +15,8 @@ from rest_framework.pagination import LimitOffsetPagination
 import re
 from datetime import date
 
+from django.core.cache import cache
+
 # Create your views here.
 
 # Fonction pour lister les Clients
@@ -22,7 +24,23 @@ from datetime import date
 @permission_classes([EstAdministrateur])
 def list_client(request):
     try :
+        cache_version = cache.get("clients_cache_version",1)
+
         clients = Client.objects.filter(date_creation__date=date.today()).order_by('-date_creation')
+
+        # Créer la clé du cache
+        limit = request.GET.get("limit","10")
+        offset = request.GET.get("offset","0")
+        cache_key = f"cache_client_list_v_{cache_version}_{limit}_{offset}_{request.user.id}"
+
+        # Charger les ventes depuis le cache
+        cached_data = cache.get(cache_key)
+        if cached_data:
+            return Response({
+            "success":True,
+            "data":cached_data,
+            "cached":True
+            }, status=status.HTTP_200_OK)
 
         # Pagination
         pagination = LimitOffsetPagination()
@@ -31,9 +49,16 @@ def list_client(request):
 
         serializer = ClientSerializer(clients_page, many=True)
         pagination_response = pagination.get_paginated_response(serializer.data)
+        response_data = pagination_response.data
+
+        # Stocker les clients dans le cache
+        cached_timeout = 60 * 5
+        cache.set(cache_key,response_data,cached_timeout)
+
+
         return Response({
             "success":True,
-            "data":pagination_response.data
+            "data":response_data
         }, status=status.HTTP_200_OK)
     except Exception as e :
         return Response({

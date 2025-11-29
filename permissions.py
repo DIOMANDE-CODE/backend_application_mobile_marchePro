@@ -1,5 +1,4 @@
 from rest_framework.permissions import BasePermission
-# from utilisateurs.models import ROLE_CHOICES
 
 # verifier que l'utilisateur connecté est l'admin
 class EstAdministrateur(BasePermission):

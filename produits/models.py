@@ -21,8 +21,6 @@ class Categorie(models.Model):
     def __str__(self):
         return self.nom_categorie
 
-
-
 # Creation du modèle Produit
 class Produit(models.Model):
     identifiant_produit = models.UUIDField(default=uuid.uuid4,editable=False, unique=True )

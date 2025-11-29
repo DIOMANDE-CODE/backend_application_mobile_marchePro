@@ -14,7 +14,8 @@ from django.shortcuts import get_object_or_404
 import os
 
 from rest_framework.pagination import LimitOffsetPagination
-
+from django.db.models import Q
+from django.core.cache import cache
 # Create your views here.
 
 # """ Fonctiionnalités du modèle Categorie """"
@@ -192,23 +193,57 @@ def delete_Categorie(request, identifiant):
 
 # Lister les produits
 @api_view(['GET'])
-@permission_classes([EstAdministrateur])
-@permission_classes([EstGerant])
+# @permission_classes([EstAdministrateur,EstGerant])
+@permission_classes([AllowAny])
 def list_produit(request):
     try :
+
+        # Récupérer la version du cache
+        cache_version = cache.get('produits_cache_version', 1)
+        # Recupérer le paramètre de recherche
+        search = request.GET.get('search','')
+
         produits = Produit.objects.all().order_by('-date_creation')
+
+        if search :
+            produits = produits.filter(
+                Q(nom_produit__icontains=search) | Q(prix_unitaire_produit__icontains=search)
+            )
+
+        # Creation d'une clé de cache
+        limit = request.GET.get('limit','7')
+        offset = request.GET.get('offset','0')
+        cache_key = f"produit_list_v_{cache_version}_{search}_{limit}_{offset}_{request.user.id}"
+        print("cache key",cache_key)
+
+        # Recupération des données depuis le cache
+        cached_data = cache.get(cache_key)
+        if cached_data:
+            return Response({
+                "success":True,
+                "data": cached_data,
+                "cached":True
+            }, status=status.HTTP_200_OK)
+          
         # Pagination
         paginator = LimitOffsetPagination()
         paginator.default_limit = 7
-        produits_page = paginator.paginate_queryset(produits, request) 
+        produits_page = paginator.paginate_queryset(produits, request)
+
 
 
         serializer = ProduitSerializer(produits_page, many=True)
         paginator_response = paginator.get_paginated_response(serializer.data)
+        response_data = paginator_response.data
+
+        # Stocker les données dans le cache
+        cache_timeout = 60 * 5
+        cache.set(cache_key,response_data,cache_timeout)
+
 
         return Response({
             "success":True,
-            "data": paginator_response.data
+            "data": response_data
         }, status=status.HTTP_200_OK)
     except Exception as e :
         import traceback
@@ -448,5 +483,3 @@ def alertes_actives(request):
             "errors": "Erreur interne du serveur",
             "message": str(e)
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-

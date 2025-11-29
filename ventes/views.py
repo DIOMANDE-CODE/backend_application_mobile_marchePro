@@ -6,6 +6,7 @@ from .serializers import VenteCreateSerializer, VoirVenteSerializer
 from .models import Vente
 from datetime import date
 from rest_framework.pagination import LimitOffsetPagination
+from django.core.cache import cache
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
@@ -35,7 +36,24 @@ def creer_vente(request):
 @api_view(['GET'])
 def liste_ventes(request):
     try :
+        cache_version = cache.get("ventes_cache_version",1)
+
+
         ventes = Vente.objects.filter(date_vente__date=date.today()).order_by('-date_vente')
+
+        # Creation de la clé cache
+        limit = request.GET.get("limit","7")
+        offset = request.GET.get("offset","O")
+        cache_key = f"cache_vente_list_v_{cache_version}_{limit}_{offset}_{request.user.id}"
+
+        # Charger les données depuis le cache
+        cached_data = cache.get(cache_key)
+        if cached_data:
+             return Response({
+            "success":True,
+            "data":pagination_response.data
+        }, status=status.HTTP_200_OK)
+
 
         # pagination
         pagination = LimitOffsetPagination()
@@ -43,11 +61,16 @@ def liste_ventes(request):
         ventes_page = pagination.paginate_queryset(ventes,request)
         serializer = VoirVenteSerializer(ventes_page, many=True)
         pagination_response = pagination.get_paginated_response(serializer.data)
+        response_data = pagination_response.data
 
+        # Stocker les ventes dans le cache
+        cache_timeout = 60 * 5
+        cache.set(cache_key,response_data,cache_timeout)
 
         return Response({
             "success":True,
-            "data":pagination_response.data
+            "data":response_data,
+            "cached":True
         }, status=status.HTTP_200_OK)
     except Exception as e :
         return Response({
