@@ -34,6 +34,7 @@ def creer_vente(request):
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def liste_ventes(request):
     try :
         cache_version = cache.get("ventes_cache_version",1)
@@ -101,8 +102,7 @@ def liste_ventes_par_vendeur(request):
                 "success":False,
                 "errors":"Erreur interne du serveur",
                 "message":str(e)
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-    
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)    
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])

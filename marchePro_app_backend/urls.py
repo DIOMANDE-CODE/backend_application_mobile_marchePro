@@ -18,7 +18,7 @@ from django.contrib import admin
 from django.urls import path,include
 from django.conf import settings
 from django.conf.urls.static import static
-from drf_spectacular.views import SpectacularAPIView,SpectacularSwaggerView,SpectacularRedocView
+from drf_spectacular.views import SpectacularAPIView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -28,6 +28,7 @@ urlpatterns = [
     path('produits/', include('produits.urls')),
     path('ventes/', include('ventes.urls')),
     path('statistiques/', include('statistiques.urls')),
+    path('commandes/', include('commandes.urls')),
 
     # urls de drf-spectacular
     path('schema/', SpectacularAPIView.as_view(),name='schema'),

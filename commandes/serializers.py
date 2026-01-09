@@ -1,9 +1,10 @@
 from rest_framework import serializers
-from .models import Vente, DetailVente
+from .models import Commande, DetailCommande
 from clients.models import Client
 from produits.models import Produit
 from utilisateurs.serializers import UtilisateurSerializer
-
+from utilisateurs.models import Utilisateur
+from .models import AttributionCommande
 
 class ItemSerializer(serializers.Serializer):
     identifiant_produit = serializers.CharField()
@@ -11,13 +12,11 @@ class ItemSerializer(serializers.Serializer):
     prix_unitaire_produit = serializers.DecimalField(max_digits=10, decimal_places=2)
     quantite_produit_disponible = serializers.IntegerField()
 
-
 class ClientSerializer(serializers.Serializer):
     nom_client = serializers.CharField()
     numero_telephone_client = serializers.CharField()
 
-
-class VenteCreateSerializer(serializers.Serializer):
+class CommandeCreateSerializer(serializers.Serializer):
     client = ClientSerializer()
     items = ItemSerializer(many=True)
 
@@ -31,17 +30,24 @@ class VenteCreateSerializer(serializers.Serializer):
             numero_telephone_client=client_data['numero_telephone_client']
         )
 
-        # Créer la vente
-        utilisateur = self.context['request'].user
-        vente = Vente.objects.create(
+        # Round Robin pour le vendeur
+        vendeurs = Utilisateur.objects.filter(role='vendeur')
+        attribution, _ = AttributionCommande.objects.get_or_create(id=1)
+        index = attribution.dernier_index % vendeurs.count()
+        vendeur_choisi = vendeurs[index]
+        attribution.dernier_index = index + 1
+        attribution.save()
+
+        # Créer la commande
+        commande = Commande.objects.create(
             client=client,
-            utilisateur=utilisateur
+            utilisateur=vendeur_choisi
         )
 
-        # Créer les détails de vente
+        # Créer les détails de commande
         for item in items_data:
             produit, _ = Produit.objects.get_or_create(
-                identifiant_produit=item['identifiant_produit'],
+                identifiant_produit = item['identifiant_produit'],
                 defaults={
                     'nom_produit': item['nom_produit'],
                     'prix_unitaire': item['prix_unitaire_produit'],
@@ -49,49 +55,70 @@ class VenteCreateSerializer(serializers.Serializer):
                 }
             )
 
-            # Décrémenter le stock
+            # Décrementer le stock
+
             produit.quantite_produit_disponible -= item['quantite_produit_disponible']
             produit.save()
 
-            DetailVente.objects.create(
-                vente=vente,
+            DetailCommande.objects.create(
+                commande=commande,
                 produit=produit,
                 quantite=item['quantite_produit_disponible'],
                 prix_unitaire=item['prix_unitaire_produit'],
                 sous_total=item['prix_unitaire_produit'] * item['quantite_produit_disponible']
             )
-
+        
         # Calculer les totaux de la vente
-        vente.calculer_totaux()
-        return vente
+        commande.calculer_totaux()
+        return commande
+    
 
-
-# Serializer pour les détails de vente
-class VoirDetailVenteSerializer(serializers.ModelSerializer):
-    produit = serializers.StringRelatedField()  # Affiche le nom du produit
+# Serializer pour les details de commande
+class VoirDetailCommandeSerializer(serializers.ModelSerializer):
+    produit = serializers.StringRelatedField()
 
     class Meta:
-        model = DetailVente
+        model = DetailCommande
         fields = ['id', 'produit', 'quantite', 'prix_unitaire', 'sous_total']
 
-
-# Serializer pour voir les ventes
-class VoirVenteSerializer(serializers.ModelSerializer):
+# Serializer pour voir les commandes
+class VoirCommandeSerializer(serializers.ModelSerializer):
     client = ClientSerializer()  # Client imbriqué
-    details = VoirDetailVenteSerializer(many=True, read_only=True)
-    utilisateur = UtilisateurSerializer()  
-    # Affiche le nom de l'utilisateur
+    details_commandes = VoirDetailCommandeSerializer(many=True, read_only=True)
+    utilisateur = UtilisateurSerializer() 
 
     class Meta:
-        model = Vente
+        model = Commande
         fields = [
             'id',
-            'identifiant_vente',
+            'identifiant_commande',
             'client',
             'utilisateur',
-            'date_vente',
+            'date_commande',
+            'etat_commande',
             'total_ht',
             'tva',
             'total_ttc',
-            'details_ventes',
+            'details_commandes',
         ]
+ 
+
+#  Serializer pour changer l'etat de la commande
+class CommandeUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Commande
+        fields = ['etat_commande']
+
+    def validate_etat_commande(self,value):
+        commande = self.instance
+
+        if commande.etat_commande == 'livre':
+            raise serializers.ValidationError(
+                "Une commande livrée ne peut plus être modifiée."
+            )
+        if commande.etat_commande == 'annule' and value != 'annule':
+            raise serializers.ValidationError(
+                "Une commande annulée ne peut pas changer d’état."
+            )
+        
+        return value

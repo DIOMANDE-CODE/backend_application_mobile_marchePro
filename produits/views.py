@@ -17,7 +17,7 @@ from rest_framework.pagination import LimitOffsetPagination
 from django.db.models import Q
 from django.core.cache import cache
 # Create your views here.
-
+     
 # """ Fonctiionnalités du modèle Categorie """"
 
 # Lister les categories
@@ -199,7 +199,7 @@ def list_produit(request):
     try :
 
         # Récupérer la version du cache
-        cache_version = cache.get('produits_cache_version', 1)
+        # cache_version = cache.get('produits_cache_version', 1)
         # Recupérer le paramètre de recherche
         search = request.GET.get('search','')
 
@@ -213,23 +213,22 @@ def list_produit(request):
         # Creation d'une clé de cache
         limit = request.GET.get('limit','7')
         offset = request.GET.get('offset','0')
-        cache_key = f"produit_list_v_{cache_version}_{search}_{limit}_{offset}_{request.user.id}"
-        print("cache key",cache_key)
+        # cache_key = f"produit_list_v_{cache_version}_{search}_{limit}_{offset}_{request.user.id}"
+        # print("cache key",cache_key)
 
-        # Recupération des données depuis le cache
-        cached_data = cache.get(cache_key)
-        if cached_data:
-            return Response({
-                "success":True,
-                "data": cached_data,
-                "cached":True
-            }, status=status.HTTP_200_OK)
-          
+        # # Recupération des données depuis le cache
+        # cached_data = cache.get(cache_key)
+        # if cached_data:
+        #     return Response({
+        #         "success":True,
+        #         "data": cached_data,
+        #         "cached":True
+        #     }, status=status.HTTP_200_OK)
+
         # Pagination
         paginator = LimitOffsetPagination()
         paginator.default_limit = 7
         produits_page = paginator.paginate_queryset(produits, request)
-
 
 
         serializer = ProduitSerializer(produits_page, many=True)
@@ -238,7 +237,7 @@ def list_produit(request):
 
         # Stocker les données dans le cache
         cache_timeout = 60 * 5
-        cache.set(cache_key,response_data,cache_timeout)
+        # cache.set(cache_key,response_data,cache_timeout)
 
 
         return Response({
