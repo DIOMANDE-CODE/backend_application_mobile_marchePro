@@ -6,4 +6,6 @@ urlpatterns = [
     path('du_jour/vendeur/', statistiques_quotidiennes_vendeur,name='statistiques_quotidiennes_vendeur'),
     path('de_semaine/', statistiques_de_la_semaine,name='statistiques_de_la_semaine'),
     path('de_mois/', statistiques_du_mois,name='statistiques_du_mois'),
+
+    
 ]

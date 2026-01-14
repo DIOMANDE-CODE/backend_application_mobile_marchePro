@@ -5,7 +5,6 @@ from .models import Vente, DetailVente
 class VenteAdmin(admin.ModelAdmin):
     list_display = (
         'identifiant_vente',
-        'client',
         'utilisateur',
         'date_vente',
         'total_ht',
@@ -13,7 +12,7 @@ class VenteAdmin(admin.ModelAdmin):
         'total_ttc',
         'date_creation',
     )
-    search_fields = ('client__nom_client', 'utilisateur__username', 'identifiant_vente')
+    search_fields = ('utilisateur__username', 'identifiant_vente')
     list_filter = ('date_vente',)
     readonly_fields = ('date_creation', 'date_modification')
 

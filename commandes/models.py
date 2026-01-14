@@ -22,21 +22,26 @@ class Commande(models.Model):
     client = models.ForeignKey(Client, on_delete=models.CASCADE, null=True, blank=True, related_name='commandes_clients')
     utilisateur=models.ForeignKey(Utilisateur, on_delete=models.CASCADE, null=True, blank=True, related_name="commandes_utilisateurs")
     date_commande = models.DateTimeField(default=timezone.now)
+    code_livraison = models.CharField(max_length=20, editable=False, default="MARCHEPRO-")
     total_ht = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     tva = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     total_ttc = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     date_creation = models.DateTimeField(auto_now_add=True)
     date_modification = models.DateTimeField(auto_now=True)
+    is_active = models.BooleanField(default=True, verbose_name="commande active")
 
     def save(self, *args, **kwargs):
         if not self.identifiant_commande:
             today_str = timezone.now().strftime("%Y%m%d")
             count_today = Commande.objects.filter(date_commande__date=timezone.now().date()).count() + 1
             self.identifiant_commande = f"MarchéPro-C-{today_str}-{count_today:03d}"
+        if self.code_livraison :
+            code = str(uuid.uuid4())[:6].upper()
+            self.code_livraison = f"M-{code}"
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"Commande {self.identifiant_commande}"
+        return f"Commande {self.identifiant_commande} - Code de livraison {self.code_livraison}"
     
     def calculer_totaux(self):
         """

@@ -30,18 +30,12 @@ class CommandeCreateSerializer(serializers.Serializer):
             numero_telephone_client=client_data['numero_telephone_client']
         )
 
-        # Round Robin pour le vendeur
-        vendeurs = Utilisateur.objects.filter(role='vendeur')
-        attribution, _ = AttributionCommande.objects.get_or_create(id=1)
-        index = attribution.dernier_index % vendeurs.count()
-        vendeur_choisi = vendeurs[index]
-        attribution.dernier_index = index + 1
-        attribution.save()
+        utilisateur = self.context['request'].user
 
         # Créer la commande
         commande = Commande.objects.create(
             client=client,
-            utilisateur=vendeur_choisi
+            utilisateur=utilisateur
         )
 
         # Créer les détails de commande
@@ -94,12 +88,14 @@ class VoirCommandeSerializer(serializers.ModelSerializer):
             'identifiant_commande',
             'client',
             'utilisateur',
+            'code_livraison',
             'date_commande',
             'etat_commande',
             'total_ht',
             'tva',
             'total_ttc',
             'details_commandes',
+            'is_active',
         ]
  
 

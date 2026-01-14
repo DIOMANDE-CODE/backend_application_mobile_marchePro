@@ -11,6 +11,11 @@ class EstGerant(BasePermission):
     def has_permission(self, request, view):
         return request.user.is_authenticated and request.user.role == 'gerant'
     
+# verifier que l'utilisateur connecté est le client
+class EstClient(BasePermission):
+    def has_permission(self, request, view):
+        return request.user.is_authenticated and request.user.role == 'client'
+    
 
 # Permission objets accordé uniquement à l'utilisateur connecté
 class IsOwner(BasePermission):

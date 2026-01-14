@@ -1,9 +1,13 @@
 from django.db import models
 import uuid
 from django.core.validators import RegexValidator
-
+from utilisateurs.models import Utilisateur
 
 # Create your models here.
+
+# Définition de la photo de profil par defaut
+def photo_profil_par_defaut():
+    return 'media/photo-profil-defaut.jpg'
 
 # Verification du numéro de l'utilisateur en conformité avec celui de la CI
 verification_numero = RegexValidator(
@@ -15,11 +19,14 @@ verification_numero = RegexValidator(
 class Client(models.Model):
     identifiant_client = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     nom_client = models.CharField(max_length=150, blank=True, null=True, verbose_name="Nom client")
-    numero_telephone_client = models.CharField(max_length=15, validators=[verification_numero],null=True, blank=True, verbose_name="Numero de téléphone", unique=True)
+    numero_telephone_client = models.CharField(max_length=15, validators=[verification_numero],null=True, blank=True, verbose_name="Numero de téléphone")
+    role = models.CharField(max_length=10, default="client", verbose_name="role client", editable=False, null=True, blank=True)
+    is_active = models.BooleanField(default=True)
 
     date_creation = models.DateTimeField(auto_now_add=True)
     date_modification = models.DateTimeField(auto_now = True)
 
     def __str__(self):
         return self.nom_client
+    
 

@@ -45,6 +45,34 @@ def creer_commande(request):
             "message":str(e)
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
+# iste des commandes
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def liste_commande(request):
+    try:
+        commandes = Commande.objects.all()
+        
+        limit = request.GET.get("limit","7")
+        offset = request.GET.get("offset","O")
+
+        # Pagination
+        pagination = LimitOffsetPagination()
+        pagination.default_limit = 7
+        commandes_page = pagination.paginate_queryset(commandes,request)
+        serializer = VoirCommandeSerializer(commandes_page, many=True)
+        pagination_response = pagination.get_paginated_response(serializer.data)
+        response_data = pagination_response.data
+        return Response({
+            "success":True,
+            "data":response_data,
+        }, status=status.HTTP_200_OK)
+    except Exception as e :
+        return Response({
+            "success":False,
+            "errors":"Erreur interne du serveur",
+            "message":str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
 
 # Fonction pour lister les commandes par vendeur
 @api_view(['GET'])
@@ -59,7 +87,7 @@ def liste_commande_par_vendeur(request):
         }, status=403)
     else:
         try:
-            commandes = Commande.objects.filter(utilisateur=user).order_by('-date_commande')
+            commandes = Commande.objects.filter(utilisateur=user,date_commande__date=date.today()).order_by('-date_commande')
             serializer = VoirCommandeSerializer(commandes, many=True)
             return Response({
                 "success":True,
@@ -104,6 +132,92 @@ def valider_commande(request, commande_id):
     
     try:
         commande = Commande.objects.get(identifiant_commande=commande_id)
+    except Commande.DoesNotExist:
+        return Response({
+            "success": False,
+            "errors": "Commande non trouvée."
+        }, status=404)
+    
+    try:
+        serializer = CommandeUpdateSerializer(
+            commande,
+            data=request.data,
+            partial=True
+        )
+        if serializer.is_valid():
+            serializer.save()
+            return Response({
+                "success":True,
+                "data":serializer.data
+            }, status=200)
+        return Response({
+            "success":False,
+            "errors":serializer.errors
+        }, status=400)
+    except Exception as e :
+            return Response({
+                "success":False,
+                "errors":"Erreur interne du serveur",
+                "message":str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)    
+
+
+# Fonction pour valider livraison de la commande
+@api_view(['PUT'])
+@permission_classes([IsAuthenticated])
+def livrer_commande(request, commande_id):
+    user = request.user
+    if user.role != "vendeur":
+        return Response({
+            "success": False,
+            "errors": "Accès refusé. Cette vue est réservée aux vendeurs."
+        }, status=403)
+    
+    try:
+        commande = Commande.objects.get(identifiant_commande=commande_id)
+    except Commande.DoesNotExist:
+        return Response({
+            "success": False,
+            "errors": "Commande non trouvée."
+        }, status=404)
+    
+    try:
+        serializer = CommandeUpdateSerializer(
+            commande,
+            data=request.data,
+            partial=True
+        )
+        if serializer.is_valid():
+            serializer.save()
+            return Response({
+                "success":True,
+                "data":serializer.data
+            }, status=200)
+        return Response({
+            "success":False,
+            "errors":serializer.errors
+        }, status=400)
+    except Exception as e :
+            return Response({
+                "success":False,
+                "errors":"Erreur interne du serveur",
+                "message":str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)    
+
+
+@api_view(['PUT'])
+@permission_classes([IsAuthenticated])
+def annuler_commande(request,commande_id):
+    user = request.user
+    if user.role != "vendeur":
+        return Response({
+            "success": False,
+            "errors": "Accès refusé. Cette vue est réservée aux vendeurs."
+        }, status=403)
+    
+    try:
+        commande = Commande.objects.get(identifiant_commande=commande_id)
+        commande.is_active = False
     except Commande.DoesNotExist:
         return Response({
             "success": False,

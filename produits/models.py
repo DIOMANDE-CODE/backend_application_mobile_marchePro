@@ -28,7 +28,7 @@ class Produit(models.Model):
     image_produit = models.ImageField(upload_to='media/image_produit/', default='media/logo_marchePro.png', blank=True, null=True, verbose_name='Image du produit')
     description_produit = models.TextField(blank=True, null=True, verbose_name="Description produit")
     prix_unitaire_produit = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Prix unitaire produit",validators=[MinValueValidator(0)])
-    quantite_produit_disponible = models.IntegerField(verbose_name="quantite produit", validators=[MinValueValidator(0)])
+    quantite_produit_disponible = models.IntegerField(verbose_name="quantite produit disponible", validators=[MinValueValidator(0)])
     seuil_alerte_produit = models.IntegerField(verbose_name="Quantite alerte du produit", validators=[MinValueValidator(0)])
     categorie_produit = models.ForeignKey(Categorie, on_delete=models.CASCADE, verbose_name="Categorie du produit", related_name="categories")
 

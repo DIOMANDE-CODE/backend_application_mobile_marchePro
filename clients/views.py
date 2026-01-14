@@ -5,7 +5,8 @@ from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
-from permissions import EstAdministrateur, EstGerant
+from permissions import EstAdministrateur, EstClient
+from rest_framework.permissions import IsAuthenticated, AllowAny
 
 from .models import Client
 from .serializers import ClientSerializer
@@ -16,31 +17,22 @@ import re
 from datetime import date
 
 from django.core.cache import cache
+from django.utils import timezone
 
 # Create your views here.
 
 # Fonction pour lister les Clients
 @api_view(['GET'])
-@permission_classes([EstAdministrateur])
+@permission_classes([AllowAny])
 def list_client(request):
     try :
-        cache_version = cache.get("clients_cache_version",1)
-
-        clients = Client.objects.filter(date_creation__date=date.today()).order_by('-date_creation')
+        today = timezone.now()
+        clients = Client.objects.filter(date_creation__date=today).order_by('-date_creation')
 
         # Créer la clé du cache
         limit = request.GET.get("limit","10")
         offset = request.GET.get("offset","0")
-        cache_key = f"cache_client_list_v_{cache_version}_{limit}_{offset}_{request.user.id}"
 
-        # Charger les ventes depuis le cache
-        cached_data = cache.get(cache_key)
-        if cached_data:
-            return Response({
-            "success":True,
-            "data":cached_data,
-            "cached":True
-            }, status=status.HTTP_200_OK)
 
         # Pagination
         pagination = LimitOffsetPagination()
@@ -50,11 +42,6 @@ def list_client(request):
         serializer = ClientSerializer(clients_page, many=True)
         pagination_response = pagination.get_paginated_response(serializer.data)
         response_data = pagination_response.data
-
-        # Stocker les clients dans le cache
-        cached_timeout = 60 * 5
-        cache.set(cache_key,response_data,cached_timeout)
-
 
         return Response({
             "success":True,
@@ -70,7 +57,6 @@ def list_client(request):
 # Fonction de creation d'un Client
 @api_view(['POST'])
 def create_client(request):
-    print(request.data)
     nom = request.data.get('nom_client')
     numero = request.data.get('numero_telephone_client')
 
@@ -228,3 +214,4 @@ def delete_Client(request, identifiant):
             "errors": "Erreur interne du serveur",
             "message": str(e)
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    

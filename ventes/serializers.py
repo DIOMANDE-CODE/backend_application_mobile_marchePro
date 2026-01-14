@@ -1,6 +1,5 @@
 from rest_framework import serializers
 from .models import Vente, DetailVente
-from clients.models import Client
 from produits.models import Produit
 from utilisateurs.serializers import UtilisateurSerializer
 
@@ -12,29 +11,17 @@ class ItemSerializer(serializers.Serializer):
     quantite_produit_disponible = serializers.IntegerField()
 
 
-class ClientSerializer(serializers.Serializer):
-    nom_client = serializers.CharField()
-    numero_telephone_client = serializers.CharField()
-
 
 class VenteCreateSerializer(serializers.Serializer):
-    client = ClientSerializer()
     items = ItemSerializer(many=True)
 
     def create(self, validated_data):
-        client_data = validated_data.pop('client')
         items_data = validated_data.pop('items')
 
-        # Créer ou récupérer le client
-        client, _ = Client.objects.get_or_create(
-            nom_client=client_data['nom_client'],
-            numero_telephone_client=client_data['numero_telephone_client']
-        )
 
         # Créer la vente
         utilisateur = self.context['request'].user
         vente = Vente.objects.create(
-            client=client,
             utilisateur=utilisateur
         )
 
@@ -77,8 +64,7 @@ class VoirDetailVenteSerializer(serializers.ModelSerializer):
 
 # Serializer pour voir les ventes
 class VoirVenteSerializer(serializers.ModelSerializer):
-    client = ClientSerializer()  # Client imbriqué
-    details = VoirDetailVenteSerializer(many=True, read_only=True)
+    details_ventes = VoirDetailVenteSerializer(many=True, read_only=True)
     utilisateur = UtilisateurSerializer()  
     # Affiche le nom de l'utilisateur
 
@@ -87,7 +73,6 @@ class VoirVenteSerializer(serializers.ModelSerializer):
         fields = [
             'id',
             'identifiant_vente',
-            'client',
             'utilisateur',
             'date_vente',
             'total_ht',

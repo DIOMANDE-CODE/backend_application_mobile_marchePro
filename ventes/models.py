@@ -10,7 +10,6 @@ from decimal import Decimal
 # Modèle de Vente
 class Vente(models.Model):
     identifiant_vente = models.CharField(max_length=50, editable=False, unique=True)
-    client = models.ForeignKey(Client, on_delete=models.CASCADE, null=True, blank=True, related_name='ventes_clients')
     utilisateur = models.ForeignKey(Utilisateur, on_delete=models.CASCADE, null=True, blank=True, related_name='ventes_utilisateurs')
     date_vente = models.DateTimeField(default=timezone.now)
     total_ht = models.DecimalField(max_digits=10, decimal_places=2, default=0)
@@ -34,9 +33,9 @@ class Vente(models.Model):
         """
         Calcule le total HT, la TVA et le total TTC à partir des détails de la vente.
         """
-        details = self.details_vente.all()
+        details = self.details_ventes.all()
         total_ht = sum(detail.sous_total for detail in details)
-        tva = total_ht * Decimal('0.10') 
+        tva = total_ht * Decimal('0.00') 
         total_ttc = total_ht + tva
 
         self.total_ht = total_ht

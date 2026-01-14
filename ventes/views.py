@@ -48,7 +48,7 @@ def liste_ventes(request):
         cache_key = f"cache_vente_list_v_{cache_version}_{limit}_{offset}_{request.user.id}"
 
         # Charger les données depuis le cache
-        cached_data = cache.get(cache_key)
+        cached_data = cache.get(cache_key)  
         if cached_data:
              return Response({
             "success":True,
