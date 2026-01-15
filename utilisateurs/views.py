@@ -149,7 +149,7 @@ def detail_utilisateur(request):
         if not email or not numero or not nom : 
             return Response({
                 "success":False,
-                "errors":"Tous les champs sont obligatoires"
+                "errors":"Les champs nom,numero et email sont obligatoires"
             }, status=status.HTTP_400_BAD_REQUEST)
         
         try :
@@ -172,7 +172,11 @@ def detail_utilisateur(request):
         try :
             serializer = UtilisateurSerializer(user, data=request.data, partial=True)
             if serializer.is_valid():
-                serializer.save()
+                user = serializer.save()
+                nouveau_mot_de_passe = request.data.get('nouveau_code',None)
+                if nouveau_mot_de_passe:
+                    user.set_password(nouveau_mot_de_passe)
+                    user.save()
                 return Response({
                     "success":True,
                     "message":"Compte modifié avec succès",

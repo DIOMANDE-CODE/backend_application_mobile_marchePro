@@ -7,7 +7,7 @@ import uuid
 
 # Définition de la photo de profil par defaut
 def photo_profil_par_defaut():
-    return 'media/photo-profil-defaut.jpg'
+    return 'media/logo_marchePro.png'
 
 # Definition des roles de l'utilisateur
 ROLE_CHOICES = (

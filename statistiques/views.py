@@ -130,6 +130,7 @@ def calculer_statut_commandes(debut, fin):
     valeur_commande_en_cours = sum(c.total_ttc for c in commandes_en_cours)
     valeur_commande_en_livraison = sum(c.total_ttc for c in commandes_validees)
     valeur_commande_livre = sum(c.total_ttc for c in commandes_livrees)
+    valeur_commande_annulees = sum(c.total_ttc for c in commandes_annulees)
     
     return {
         'en_cours': commandes_en_cours.count(),
@@ -140,6 +141,7 @@ def calculer_statut_commandes(debut, fin):
         'valeur_commande_en_livraison': float(valeur_commande_en_livraison),
         'total_commande': total_commande,
         'valeur_commande_livre':valeur_commande_livre,
+        'valeur_commande_annulees':valeur_commande_annulees,
     }
 
 def calculer_statut_stock():
@@ -243,23 +245,25 @@ def statistiques_quotidiennes_vendeur(request):
             commandes_du_aujourdhui = Commande.objects.filter(utilisateur=user, date_commande__date=aujourd_hui, etat_commande="livre")
             total_ventes_commandes_aujourd_hui = sum(vente.total_ttc for vente in commandes_du_aujourdhui)
 
+            nb_ventes = ventes_du_aujourdhui.count() + commandes_du_aujourdhui.count()
+
             # Caisse du jour du vendeur connecté
             total_caisse_jour = total_ventes_aujourd_hui + total_ventes_commandes_aujourd_hui
 
             # Total Commande du jour
-            total_commande_aujourd_hui = Commande.objects.filter(date_creation__date=aujourd_hui).count()
+            total_commande_aujourd_hui = Commande.objects.filter(date_creation__date=aujourd_hui,utilisateur=user).count()
 
             # Total Commande Attente du jour
-            total_commande_attente_aujourd_hui = Commande.objects.filter(date_creation__date=aujourd_hui,etat_commande='en_cours').count()
+            total_commande_attente_aujourd_hui = Commande.objects.filter(date_creation__date=aujourd_hui,etat_commande='en_cours',utilisateur=user).count()
 
             # Total Commande Attente du jour
-            total_commande_valide_aujourd_hui = Commande.objects.filter(date_creation__date=aujourd_hui,etat_commande='valide').count()
+            total_commande_valide_aujourd_hui = Commande.objects.filter(date_creation__date=aujourd_hui,etat_commande='valide',utilisateur=user).count()
 
             # Total Commande Livre du jour
-            total_commande_livre_aujourd_hui = Commande.objects.filter(date_creation__date=aujourd_hui,etat_commande='livre').count()
+            total_commande_livre_aujourd_hui = Commande.objects.filter(date_creation__date=aujourd_hui,etat_commande='livre',utilisateur=user).count()
 
             # Total Commande Annulée du jour
-            total_commande_annulee_aujourd_hui = Commande.objects.filter(date_creation__date=aujourd_hui,etat_commande='annule').count()
+            total_commande_annulee_aujourd_hui = Commande.objects.filter(date_creation__date=aujourd_hui,etat_commande='annule',utilisateur=user).count()
 
             return Response({
             "success":True,
@@ -272,6 +276,7 @@ def statistiques_quotidiennes_vendeur(request):
                 "total_ventes_aujourd_hui":total_ventes_aujourd_hui,
                 "total_ventes_commandes_aujourd_hui":total_ventes_commandes_aujourd_hui,
                 "total_commande_annulee_aujourd_hui":total_commande_annulee_aujourd_hui,
+                "nombre_total_vente_aujourd_hui":nb_ventes,
             }
         }, status=200)
         except Exception as e :
