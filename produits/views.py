@@ -467,7 +467,7 @@ def delete_produit(request, identifiant):
 @api_view(["GET"])
 def alertes_actives(request):
     try:
-        alertes = AlertProduit.objects.filter(statut_alerte=False).order_by('-date_alerte')
+        alertes = AlertProduit.objects.filter(statut_alerte=True).order_by('-date_alerte')
         serializer = AlertProduitSerializer(alertes, many=True)
         return Response({
             "success": True,

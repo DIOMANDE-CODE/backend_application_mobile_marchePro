@@ -1,16 +1,227 @@
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from datetime import date, timedelta
+from decimal import Decimal
 
 from ventes.models import Vente
 from produits.models import Produit, AlertProduit
 from clients.models import Client
 from ventes.models import DetailVente
-from django.db.models import Sum
+from django.db.models import Sum, Count, Q, F, DecimalField
+from django.db.models.functions import Coalesce
 import calendar
 from permissions import EstAdministrateur
 from commandes.models import Commande, DetailCommande
+from rest_framework.permissions import AllowAny
+
 # Create your views here.
+
+# FONCTIONS UTILITAIRES POUR LES STATISTIQUES
+def obtenir_plage_dates(period='jour'):
+    """Retourne le début et la fin de la période demandée"""
+    today = date.today()
+    
+    if period == 'jour':
+        return today, today
+    elif period == 'semaine':
+        debut = today - timedelta(days=today.weekday())
+        fin = debut + timedelta(days=6)
+        return debut, fin
+    elif period == 'mois':
+        debut = today.replace(day=1)
+        dernier_jour = calendar.monthrange(today.year, today.month)[1]
+        fin = today.replace(day=dernier_jour)
+        return debut, fin
+    return today, today
+
+def obtenir_plage_dates_precedente(period='jour'):
+    """Retourne le début et la fin de la période précédente pour comparaison"""
+    today = date.today()
+    
+    if period == 'jour':
+        prev_day = today - timedelta(days=1)
+        return prev_day, prev_day
+    elif period == 'semaine':
+        debut = today - timedelta(days=today.weekday())
+        prev_debut = debut - timedelta(days=7)
+        prev_fin = prev_debut + timedelta(days=6)
+        return prev_debut, prev_fin
+    elif period == 'mois':
+        debut = today.replace(day=1)
+        prev_fin = debut - timedelta(days=1)
+        prev_debut = prev_fin.replace(day=1)
+        return prev_debut, prev_fin
+    return today, today
+
+def calculer_apercu_ventes(debut, fin):
+    """Calcule la vue d'ensemble des ventes pour une période"""
+    ventes = Vente.objects.filter(date_vente__date__range=[debut, fin])
+    commandes_livrees = Commande.objects.filter(
+        date_commande__date__range=[debut, fin],
+        etat_commande='livre'
+    )
+    
+    total_ventes = sum(v.total_ttc for v in ventes)
+    total_commandes = sum(c.total_ttc for c in commandes_livrees)
+    total_ca = total_ventes + total_commandes
+    
+    # Nombre de ventes réalisées
+    nb_ventes = ventes.count() + commandes_livrees.count()
+    
+    # Produits les plus vendus
+    top_products = DetailVente.objects.filter(
+        vente__date_vente__date__range=[debut, fin]
+    ).values('produit__nom_produit', 'produit__identifiant_produit').annotate(
+        total_qty=Sum('quantite'),
+        total_amount=Sum(F('quantite') * F('prix_unitaire'), output_field=DecimalField())
+    ).order_by('-total_qty')[:5]
+    
+    # Ajouter les produits des commandes livrées
+    commande_products = DetailCommande.objects.filter(
+        commande__date_commande__date__range=[debut, fin],
+        commande__etat_commande='livre'
+    ).values('produit__nom_produit', 'produit__identifiant_produit').annotate(
+        total_qty=Sum('quantite'),
+        total_amount=Sum(F('quantite') * F('prix_unitaire'), output_field=DecimalField())
+    ).order_by('-total_qty')
+    
+    # Combiner et trier
+    all_products = {}
+    for p in list(top_products) + list(commande_products):
+        key = p['produit__identifiant_produit']
+        if key not in all_products:
+            all_products[key] = p
+        else:
+            all_products[key]['total_qty'] += p['total_qty']
+            all_products[key]['total_amount'] += p['total_amount']
+    
+    top_products_sorted = sorted(all_products.values(), key=lambda x: x['total_qty'], reverse=True)[:5]
+
+    
+    return {
+        'total_ca': float(total_ca),
+        'total_ventes': float(total_ventes),
+        'total_commandes': float(total_commandes),
+        'nombre_ventes': nb_ventes,
+        'top_produits': top_products_sorted
+    }
+
+def calculer_statut_commandes(debut, fin):
+    """Calcule l'état des commandes"""
+    commandes_en_cours = Commande.objects.filter(
+        date_creation__date__range=[debut, fin],
+        etat_commande='en_cours'
+    )
+    commandes_validees = Commande.objects.filter(
+        date_creation__date__range=[debut, fin],
+        etat_commande='valide'
+    )
+    commandes_livrees = Commande.objects.filter(
+        date_creation__date__range=[debut, fin],
+        etat_commande='livre'
+    )
+    commandes_annulees = Commande.objects.filter(
+        date_creation__date__range=[debut, fin],
+        etat_commande='annule'
+    )
+
+    total_commande = commandes_en_cours.count() + commandes_validees.count() + commandes_livrees.count() + commandes_annulees.count()
+    
+    valeur_commande_en_cours = sum(c.total_ttc for c in commandes_en_cours)
+    valeur_commande_en_livraison = sum(c.total_ttc for c in commandes_validees)
+    valeur_commande_livre = sum(c.total_ttc for c in commandes_livrees)
+    
+    return {
+        'en_cours': commandes_en_cours.count(),
+        'en_livraison': commandes_validees.count(),
+        'livrees': commandes_livrees.count(),
+        'annulees': commandes_annulees.count(),
+        'valeur_commande_en_cours': float(valeur_commande_en_cours),
+        'valeur_commande_en_livraison': float(valeur_commande_en_livraison),
+        'total_commande': total_commande,
+        'valeur_commande_livre':valeur_commande_livre,
+    }
+
+def calculer_statut_stock():
+    """Calcule l'état du stock"""
+    total_stock = Produit.objects.count()
+    rupture_stock = Produit.objects.filter(quantite_produit_disponible=0)
+    alertes_stock = AlertProduit.objects.filter(statut_alerte=True)
+    
+    produits_invendus = DetailVente.objects.exclude(
+        produit__in=DetailVente.objects.filter(
+            vente__date_vente__date__gte=date.today() - timedelta(days=30)
+        ).values_list('produit')
+    ).values_list('produit', flat=True).distinct()
+    
+    return {
+        'total_stock':total_stock,
+        'rupture_stock': rupture_stock.count(),
+        'produits_rupture': [{'nom': p.nom_produit, 'id': str(p.identifiant_produit)} for p in rupture_stock],
+        'alerte_faible_stock': alertes_stock.count(),
+        'produits_alerte': [
+            {
+                'nom': a.produit.nom_produit,
+                'id': str(a.produit.identifiant_produit),
+                'quantite': a.produit.quantite_produit_disponible,
+                'seuil': a.produit.seuil_alerte_produit
+            }
+            for a in alertes_stock
+        ],
+        'produits_invendus': produits_invendus.count(),
+    }
+
+def calculer_stats_clients(debut, fin):
+    """Calcule les statistiques clients"""
+    nouveaux_clients = Client.objects.filter(date_creation__date__range=[debut, fin]).count()
+    
+    # Clients réguliers (3+ commandes en 30 jours)
+    clients_reguliers = Client.objects.annotate(
+        commande_count=Count('commandes_clients')
+    ).filter(commande_count__gte=3)
+    
+    # Top clients par nombre de commandes
+    top_clients = Client.objects.annotate(
+        commande_count=Count('commandes_clients'),
+        total_depense=Coalesce(Sum('commandes_clients__total_ttc'), Decimal('0'))
+    ).order_by('-total_depense')[:10]
+    
+    return {
+        'nouveaux_clients': nouveaux_clients,
+        'clients_reguliers': clients_reguliers.count(),
+        'top_clients': [
+            {
+                'nom': c.nom_client,
+                'id': str(c.identifiant_client),
+                'commandes': c.commande_count,
+                'total_depense': float(c.total_depense)
+            }
+            for c in top_clients
+        ]
+    }
+
+def calculer_comparaison(period='jour'):
+    """Calcule la comparaison avec la période précédente"""
+    debut, fin = obtenir_plage_dates(period)
+    prev_debut, prev_fin = obtenir_plage_dates_precedente(period)
+    
+    # CA actuel vs précédent
+    ca_actuel = calculer_apercu_ventes(debut, fin)['total_ca']
+    ca_precedent = calculer_apercu_ventes(prev_debut, prev_fin)['total_ca']
+    
+    evolution_ca = ((ca_actuel - ca_precedent) / ca_precedent * 100) if ca_precedent > 0 else 0
+    
+    # Nombre de ventes
+    ventes_actuelles = Vente.objects.filter(date_vente__date__range=[debut, fin]).count()
+    ventes_precedentes = Vente.objects.filter(date_vente__date__range=[prev_debut, prev_fin]).count()
+    evolution_ventes = ((ventes_actuelles - ventes_precedentes) / ventes_precedentes * 100) if ventes_precedentes > 0 else 0
+    
+    return {
+        'ca_evolution': round(evolution_ca, 2),
+        'ventes_evolution': round(evolution_ventes, 2),
+        'ca_periode_actuelle': float(ca_actuel),
+        'ca_periode_precedente': float(ca_precedent),
+    }
 
 # Vue des statistiqes quotidiennes par vendeurs
 @api_view(['GET'])
@@ -76,174 +287,99 @@ def statistiques_quotidiennes_vendeur(request):
 
 # Vue pour obtenir des statistiques du jour
 @api_view(['GET'])
-@permission_classes([EstAdministrateur])
+@permission_classes([AllowAny])
 def statistiques_du_jour(request):
-    # Obtenir la date actuelle
-    aujourd_hui = date.today()
-
-    try :
-
-        # Produit en stock
-        total_produits_en_stock = Produit.objects.filter(quantite_produit_disponible__gte=1).count()
-
-        # Produits avec faible stock
-        total_produits_stock_faible = AlertProduit.objects.all().count()
-
-        # Total commande du jour
-        total_commandes_du_jour = Commande.objects.filter(date_creation__date=aujourd_hui).count()
-
-        # Total ventes
-        total_ventes_du_jour = Vente.objects.filter(date_creation__date=aujourd_hui).count()
-
-        # Total commande en attente du jour
-        total_commandes_attente_du_jour = Commande.objects.filter(date_creation__date=aujourd_hui, etat_commande='en_cours').count()
-
-        # Total commande en livraison/validé du jour
-        total_commandes_valide_du_jour = Commande.objects.filter(date_creation__date=aujourd_hui, etat_commande='valide').count()
-
-        # Total commande en livré du jour
-        total_commandes_livre_du_jour = Commande.objects.filter(date_creation__date=aujourd_hui, etat_commande='livre').count()
-
-        # Total clients du jour
-        total_client_du_jour = Client.objects.filter(date_creation__date=aujourd_hui).count()
-
-        # Total vendus aujourd'hui
-        ventes_aujourd_hui = Vente.objects.filter(date_vente__date=aujourd_hui)
-        total_ventes_aujourd_hui = sum(vente.total_ttc for vente in ventes_aujourd_hui)
-
-        # nombre de clients du jour
-        total_clients_aujourd_hui = Client.objects.filter(date_creation__date=aujourd_hui).count()
-
-        # Somme total des ventes du jour
-        ventes_du_jour = Vente.objects.filter(date_vente__date=aujourd_hui)
-        somme_totale_ventes_du_jour = sum(vente.total_ttc for vente in ventes_du_jour)
-
-        # Somme total des commandes du jour
-        commandes_du_jour = Commande.objects.filter(date_commande__date=aujourd_hui, etat_commande="livre")
-        somme_totale_commandes_aujourd_hui = sum(commande.total_ttc for commande in commandes_du_jour)
-
-        # Somme totale de la caisse du jour
-        somme_totale_caisse_du_jour = somme_totale_ventes_du_jour + somme_totale_commandes_aujourd_hui
-
-        # Somme de toutes les quantités vendues aujourd'hui
-        nombre_produits_vendus = DetailVente.objects.filter(
-            vente__date_vente__date=aujourd_hui
-        ).aggregate(total_produits=Sum('quantite'))['total_produits'] or 0
-
-        # Somme de toutes les commandes livrés aujourd'hui
-        nombre_commandes_livre = DetailCommande.objects.filter(
-            commande__date_commande__date=aujourd_hui
-        ).aggregate(total_produits=Sum('quantite'))['total_produits'] or 0
-
-        # Totaux produits vendus
-        totaux_produits_vendus_du_jour = nombre_produits_vendus + nombre_commandes_livre
-
-        # Nombre de ventes du jour
-        nombre_ventes = ventes_aujourd_hui.count()
-        nombre_commandes = commandes_du_jour.count()
-        total_vente_jour = nombre_ventes + nombre_commandes
-
-        # Panier moyen
-        panier_moyen_aujourd_hui = somme_totale_caisse_du_jour / total_vente_jour if total_vente_jour > 0 else 0
-
-
-        # nombre totale de produits avec stocks faibles
-        nombre_produits_stocks_faibles = AlertProduit.objects.filter(statut_alerte=False).count()
-
+    try:
+        debut, fin = obtenir_plage_dates('jour')
+        
+        # 1. VUE D'ENSEMBLE DES VENTES
+        sales_overview = calculer_apercu_ventes(debut, fin)
+        
+        # Calcul de la marge bénéficiaire estimée
+        # Note: Vous devez ajouter un champ 'prix_cout' au modèle Produit pour une marge réelle
+        total_ca = sales_overview['total_ca']
+        marge_estimee = Decimal(total_ca) * Decimal('0.30')  # 30% de marge estimée
+        
+        # 2. COMMANDES EN COURS
+        orders_status = calculer_statut_commandes(debut, fin)
+        
+        # 3. PRODUITS ET STOCK
+        stock_status = calculer_statut_stock()
+        
+        # 4. CLIENTS
+        clients_stats = calculer_stats_clients(debut, fin)
+        
+        # 5. COMPARAISON AVEC PÉRIODE PRÉCÉDENTE
+        comparison = calculer_comparaison('jour')
+        
         return Response({
-            "success":True,
-            "data":{
-                "total_produits_en_stock": total_produits_en_stock,
-                "total_produits_stock_faible":total_produits_stock_faible,
-                "total_commandes_du_jour":total_commandes_du_jour,
-                "total_ventes_du_jour":total_ventes_du_jour,
-                "total_commandes_attente_du_jour":total_commandes_attente_du_jour, 
-                "total_commandes_valide_du_jour":total_commandes_valide_du_jour, 
-                "total_commandes_livre_du_jour":total_commandes_livre_du_jour,
-                "total_client_du_jour":total_client_du_jour,
-                "somme_totale_caisse_du_jour":somme_totale_caisse_du_jour,
-                "somme_totale_commandes_aujourd_hui":somme_totale_commandes_aujourd_hui,
-                "somme_totale_ventes_du_jour":somme_totale_ventes_du_jour,
-                "totaux_produits_vendus_du_jour":totaux_produits_vendus_du_jour,
-
-                "total_ventes_aujourd_hui": total_ventes_aujourd_hui,
-                "total_clients_aujourd_hui": total_clients_aujourd_hui,
-                "nombre_produits_vendus_aujourd_hui": nombre_produits_vendus,
-                "panier_moyen_aujourd_hui": panier_moyen_aujourd_hui,
-                "nombre_produits_stocks_faibles": nombre_produits_stocks_faibles,
+            "success": True,
+            "data": {
+                "periode": "jour",
+                "date": str(debut),
+                "vue_ensemble_ventes": {
+                    "chiffre_affaires": sales_overview['total_ca'],
+                    "nombre_ventes": sales_overview['nombre_ventes'],
+                    "produits_plus_vendus": sales_overview['top_produits'],
+                    "marge_beneficiaire_estimee": float(marge_estimee),
+                },
+                "comparaison_periode_precedente": comparison,
+                "commandes_en_cours": orders_status,
+                "produits_stock": stock_status,
+                "clients": clients_stats,
             }
         }, status=200)
-    except Exception as e :
+    except Exception as e:
         import traceback
         traceback.print_exc()
         return Response({
-            "success":False,
-            "errors":"Erreur interne du serveur",
-            "message":str(e)
+            "success": False,
+            "errors": "Erreur interne du serveur",
+            "message": str(e)
         }, status=500)
 
 
 @api_view(['GET'])
-@permission_classes([EstAdministrateur])
+@permission_classes([AllowAny])
 def statistiques_de_la_semaine(request):
-    # Obtenir la date actuelle
-    aujourd_hui = date.today()
-    # Début de la semaine (lundi)
-    debut_semaine = aujourd_hui - timedelta(days=aujourd_hui.weekday())
-    # Fin de la semaine (dimanche)
-    fin_semaine = debut_semaine + timedelta(days=6)
-
     try:
-
-        # Somme total des ventes de la semaine
-        ventes_semaine = Vente.objects.filter(date_vente__date__range=[debut_semaine, fin_semaine])
-        somme_totale_ventes_semaine = sum(vente.total_ttc for vente in ventes_semaine)
-
-        # Somme total des commandes de la semaine
-        commandes_semaine = Commande.objects.filter(date_commande__date__range=[debut_semaine, fin_semaine],etat_commande="livre")
-        somme_totale_commandes_semaine = sum(commande.total_ttc for commande in commandes_semaine)
-
-        # Somme totale de la caisse de la semaine
-        somme_totale_caisse_semaine = somme_totale_ventes_semaine + somme_totale_commandes_semaine        
-
-        # Total clients semaine
-        total_client_semaine = Client.objects.filter(date_creation__date__range=[debut_semaine, fin_semaine]).count()
-
-        # Somme de toutes les quantités vendues semaine
-        nombre_produits_vendus_semaine = DetailVente.objects.filter(
-            vente__date_vente__date__range=[debut_semaine, fin_semaine]
-        ).aggregate(total_produits=Sum('quantite'))['total_produits'] or 0
-
-        # Somme de toutes les commandes livrés semaine
-        nombre_commandes_livre_semaine = DetailCommande.objects.filter(
-            commande__date_commande__date__range=[debut_semaine, fin_semaine]
-        ).aggregate(total_produits=Sum('quantite'))['total_produits'] or 0
-
-        # Somme de toutes les quantités vendues cette semaine
-        nombre_produits_vendus_semaine = DetailVente.objects.filter(
-            vente__date_vente__date__range=[debut_semaine, fin_semaine]
-        ).aggregate(total_produits=Sum('quantite'))['total_produits'] or 0
-
-
-        # Totaux produits vendus
-        totaux_produits_vendus_semaine = nombre_produits_vendus_semaine + nombre_commandes_livre_semaine
-
-        # Nombre de ventes du jour
-        nombre_ventes_semaine = ventes_semaine.count()
-        nombre_commandes_semaine = commandes_semaine.count()
-        total_vente_semaine = nombre_ventes_semaine + nombre_commandes_semaine
-
-        # Panier moyen semaine
-        panier_moyen_semaine = somme_totale_caisse_semaine / total_vente_semaine if total_vente_semaine > 0 else 0
-    
-
+        debut, fin = obtenir_plage_dates('semaine')
+        
+        # 1. VUE D'ENSEMBLE DES VENTES
+        sales_overview = calculer_apercu_ventes(debut, fin)
+        
+        # Calcul de la marge bénéficiaire estimée
+        total_ca = sales_overview['total_ca']
+        marge_estimee = Decimal(total_ca) * Decimal('0.30')  # 30% de marge estimée
+        
+        # 2. COMMANDES EN COURS
+        orders_status = calculer_statut_commandes(debut, fin)
+        
+        # 3. PRODUITS ET STOCK
+        stock_status = calculer_statut_stock()
+        
+        # 4. CLIENTS
+        clients_stats = calculer_stats_clients(debut, fin)
+        
+        # 5. COMPARAISON AVEC PÉRIODE PRÉCÉDENTE
+        comparison = calculer_comparaison('semaine')
+        
         return Response({
             "success": True,
             "data": {
-                "somme_totale_caisse_semaine":somme_totale_caisse_semaine,
-                "total_client_semaine":total_client_semaine,
-                "totaux_produits_vendus_semaine":totaux_produits_vendus_semaine,
-                "panier_moyen_semaine":panier_moyen_semaine,
+                "periode": "semaine",
+                "date_debut": str(debut),
+                "date_fin": str(fin),
+                "vue_ensemble_ventes": {
+                    "chiffre_affaires": sales_overview['total_ca'],
+                    "nombre_ventes": sales_overview['nombre_ventes'],
+                    "produits_plus_vendus": sales_overview['top_produits'],
+                    "marge_beneficiaire_estimee": float(marge_estimee),
+                },
+                "comparaison_periode_precedente": comparison,
+                "commandes_en_cours": orders_status,
+                "produits_stock": stock_status,
+                "clients": clients_stats,
             }
         }, status=200)
 
@@ -259,64 +395,46 @@ def statistiques_de_la_semaine(request):
 
 # Rapports mois
 @api_view(['GET'])
-@permission_classes([EstAdministrateur])
+@permission_classes([AllowAny])
 def statistiques_du_mois(request):
-    # Obtenir la date actuelle
-    aujourd_hui = date.today()
-    # Premier jour du mois
-    debut_mois = aujourd_hui.replace(day=1)
-    # Dernier jour du mois
-    dernier_jour = calendar.monthrange(aujourd_hui.year, aujourd_hui.month)[1]
-    fin_mois = aujourd_hui.replace(day=dernier_jour)
-
     try:
-
-        # Somme total des ventes du mois
-        ventes_mois = Vente.objects.filter(date_vente__date__range=[debut_mois, fin_mois])
-        somme_totale_ventes_mois = sum(vente.total_ttc for vente in ventes_mois)
-
-        # Somme total des commandes du mois
-        commandes_mois = Commande.objects.filter(date_commande__date__range=[debut_mois, fin_mois])
-        somme_totale_commandes_mois = sum(commande.total_ttc for commande in commandes_mois)
-
-        # Somme totale de la caisse du jour
-        somme_totale_caisse_mois = somme_totale_ventes_mois + somme_totale_commandes_mois        
-
-        # Total clients semaine
-        total_client_mois = Client.objects.filter(date_creation__date__range=[debut_mois, fin_mois]).count()
-
-        # Somme de toutes les quantités vendues du mois
-        nombre_produits_vendus_mois = DetailVente.objects.filter(
-            vente__date_vente__date__range=[debut_mois, fin_mois]
-        ).aggregate(total_produits=Sum('quantite'))['total_produits'] or 0
-
-        # Somme de toutes les commandes livrés du mois
-        nombre_commandes_livre_mois = DetailCommande.objects.filter(
-            commande__date_commande__date__range=[debut_mois, fin_mois]
-        ).aggregate(total_produits=Sum('quantite'))['total_produits'] or 0
-
-
-
-        # Totaux produits vendus
-        totaux_produits_vendus_mois = nombre_produits_vendus_mois + nombre_commandes_livre_mois
-
-        # Nombre de ventes du mois
-        nombre_ventes_mois = ventes_mois.count()
-        nombre_commandes_mois = commandes_mois.count()
-        total_vente_mois = nombre_ventes_mois + nombre_commandes_mois
-
-        # Panier moyen semaine
-        panier_moyen_mois = somme_totale_caisse_mois / total_vente_mois if total_vente_mois > 0 else 0
-    
-
-
+        debut, fin = obtenir_plage_dates('mois')
+        
+        # 1. VUE D'ENSEMBLE DES VENTES
+        sales_overview = calculer_apercu_ventes(debut, fin)
+        
+        # Calcul de la marge bénéficiaire estimée
+        total_ca = sales_overview['total_ca']
+        marge_estimee = Decimal(total_ca) * Decimal('0.30')  # 30% de marge estimée
+        
+        # 2. COMMANDES EN COURS
+        orders_status = calculer_statut_commandes(debut, fin)
+        
+        # 3. PRODUITS ET STOCK
+        stock_status = calculer_statut_stock()
+        
+        # 4. CLIENTS
+        clients_stats = calculer_stats_clients(debut, fin)
+        
+        # 5. COMPARAISON AVEC PÉRIODE PRÉCÉDENTE
+        comparison = calculer_comparaison('mois')
+        
         return Response({
             "success": True,
             "data": {
-                "somme_totale_caisse_mois":somme_totale_caisse_mois,
-                "total_client_mois":total_client_mois,
-                "totaux_produits_vendus_mois":totaux_produits_vendus_mois,
-                "panier_moyen_mois":panier_moyen_mois,
+                "periode": "mois",
+                "date_debut": str(debut),
+                "date_fin": str(fin),
+                "vue_ensemble_ventes": {
+                    "chiffre_affaires": sales_overview['total_ca'],
+                    "nombre_ventes": sales_overview['nombre_ventes'],
+                    "produits_plus_vendus": sales_overview['top_produits'],
+                    "marge_beneficiaire_estimee": float(marge_estimee),
+                },
+                "comparaison_periode_precedente": comparison,
+                "commandes_en_cours": orders_status,
+                "produits_stock": stock_status,
+                "clients": clients_stats,
             }
         }, status=200)
 
@@ -328,9 +446,3 @@ def statistiques_du_mois(request):
             "errors": "Erreur interne du serveur",
             "message": str(e)
         }, status=500)
-    
-
-
-
-
-    

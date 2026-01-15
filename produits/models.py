@@ -46,7 +46,7 @@ class Produit(models.Model):
         # Vérification automatique du stock faible
         if self.quantite_produit_disponible <= self.seuil_alerte_produit:
             # Vérifie si une alerte existe déjà
-            alerte_existante = AlertProduit.objects.filter(produit=self, statut_alerte=False).first()
+            alerte_existante = AlertProduit.objects.filter(produit=self, statut_alerte=True).first()
             if not alerte_existante:
                 AlertProduit.objects.create(
                     produit=self,
@@ -54,7 +54,7 @@ class Produit(models.Model):
                 )
         else:
             # Si le stock est revenu à la normale, fermer l’alerte
-            AlertProduit.objects.filter(produit=self, statut_alerte=False).update(statut_alerte=True)
+            AlertProduit.objects.filter(produit=self, statut_alerte=True).update(statut_alerte=False)
 
 
     def __str__(self):
@@ -66,5 +66,5 @@ class AlertProduit(models.Model):
     identifiant_alerte = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     produit = models.ForeignKey(Produit, on_delete=models.CASCADE, verbose_name="alert_produit")
     message_alerte = models.CharField(max_length=50, null=True, blank=True)
-    statut_alerte = models.BooleanField(default=False)
+    statut_alerte = models.BooleanField(default=True)
     date_alerte = models.DateTimeField(auto_now_add=True)

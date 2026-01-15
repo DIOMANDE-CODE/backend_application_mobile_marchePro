@@ -50,7 +50,7 @@ def creer_commande(request):
 @permission_classes([IsAuthenticated])
 def liste_commande(request):
     try:
-        commandes = Commande.objects.all()
+        commandes = Commande.objects.filter(date_creation__date=date.today())
         
         limit = request.GET.get("limit","7")
         offset = request.GET.get("offset","O")

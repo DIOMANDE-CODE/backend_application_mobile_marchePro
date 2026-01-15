@@ -3,8 +3,6 @@ from .models import Commande, DetailCommande
 from clients.models import Client
 from produits.models import Produit
 from utilisateurs.serializers import UtilisateurSerializer
-from utilisateurs.models import Utilisateur
-from .models import AttributionCommande
 
 class ItemSerializer(serializers.Serializer):
     identifiant_produit = serializers.CharField()

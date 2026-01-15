@@ -49,7 +49,7 @@ class Commande(models.Model):
         """
         details = self.details_commandes.all()
         total_ht = sum(detail.sous_total for detail in details)
-        tva = total_ht * Decimal('0.10') 
+        tva = total_ht * Decimal('0.0') 
         total_ttc = total_ht + tva
 
         self.total_ht = total_ht
