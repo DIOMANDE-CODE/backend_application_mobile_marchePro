@@ -208,7 +208,7 @@ def list_produit(request):
             )
 
         # Creation d'une clé de cache
-        limit = request.GET.get('limit','7')
+        limit = request.GET.get('limit','10')
         offset = request.GET.get('offset','0')
 
         # Pagination

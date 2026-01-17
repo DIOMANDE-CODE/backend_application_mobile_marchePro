@@ -9,7 +9,7 @@ class UtilisateurSerializer(serializers.ModelSerializer):
 
     class Meta :
         model = Utilisateur
-        fields = ['identifiant_utilisateur','email_utilisateur','password','nom_utilisateur','numero_telephone_utilisateur','photo_profil_utilisateur','role','date_creation','date_modification','is_active','is_staff','is_superuser']
+        fields = ['identifiant_utilisateur','email_utilisateur','password','nom_utilisateur','numero_telephone_utilisateur','photo_profil_utilisateur','thumbnail','role','date_creation','date_modification','is_active','is_staff','is_superuser']
         read_only_fields = ['identifiant_utilisateur','date_creation','date_modification','is_active']
 
     def create(self, validated_data):

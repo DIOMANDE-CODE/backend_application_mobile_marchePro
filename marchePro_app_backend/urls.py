@@ -19,6 +19,7 @@ from django.urls import path,include
 from django.conf import settings
 from django.conf.urls.static import static
 from drf_spectacular.views import SpectacularAPIView
+from django.http import HttpResponse
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -29,6 +30,7 @@ urlpatterns = [
     path('ventes/', include('ventes.urls')),
     path('statistiques/', include('statistiques.urls')),
     path('commandes/', include('commandes.urls')),
+    path('', lambda request: HttpResponse("Bienvenue sur MarchePro ")),
 
     # urls de drf-spectacular
     path('schema/', SpectacularAPIView.as_view(),name='schema'),
