@@ -33,19 +33,20 @@ def creer_vente(request):
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
 def liste_ventes(request):
     try :
 
         ventes = Vente.objects.filter(date_vente__date=date.today()).order_by('-date_vente')
+        
 
         # Creation de la clé cache
-        limit = request.GET.get("limit","7")
+        limit = request.GET.get("limit","10")
         offset = request.GET.get("offset","O")
 
         # pagination
         pagination = LimitOffsetPagination()
-        pagination.default_limit = 7
+        pagination.default_limit = 10
         ventes_page = pagination.paginate_queryset(ventes,request)
         serializer = VoirVenteSerializer(ventes_page, many=True)
         pagination_response = pagination.get_paginated_response(serializer.data)
@@ -54,7 +55,6 @@ def liste_ventes(request):
         return Response({
             "success":True,
             "data":response_data,
-            "cached":True
         }, status=status.HTTP_200_OK)
     except Exception as e :
         import traceback
@@ -78,10 +78,21 @@ def liste_ventes_par_vendeur(request):
     else :
         try :
             ventes = Vente.objects.filter(date_vente__date=date.today(), utilisateur=user).order_by('-date_vente')
-            serializer = VoirVenteSerializer(ventes, many=True)
+            # Creation de la clé cache
+            limit = request.GET.get("limit","10")
+            offset = request.GET.get("offset","O")
+
+            # pagination
+            pagination = LimitOffsetPagination()
+            pagination.default_limit = 10
+            ventes_page = pagination.paginate_queryset(ventes,request)
+            serializer = VoirVenteSerializer(ventes_page, many=True)
+            pagination_response = pagination.get_paginated_response(serializer.data)
+            response_data = pagination_response.data
+
             return Response({
                 "success":True,
-                "data":serializer.data
+                "data":response_data,
             }, status=status.HTTP_200_OK)
         except Exception as e :
             return Response({

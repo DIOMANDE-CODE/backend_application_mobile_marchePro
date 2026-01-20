@@ -213,7 +213,7 @@ def list_produit(request):
 
         # Pagination
         paginator = LimitOffsetPagination()
-        paginator.default_limit = 7
+        paginator.default_limit = 10
         produits_page = paginator.paginate_queryset(produits, request)
 
 

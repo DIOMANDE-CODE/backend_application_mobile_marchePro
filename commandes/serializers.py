@@ -114,5 +114,20 @@ class CommandeUpdateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 "Une commande annulée ne peut pas changer d’état."
             )
+        if  value == 'annule' and commande.etat_commande != 'annule':
+            self._restore_stock(commande)
+
         
         return value
+    
+
+    
+    def _restore_stock(self, commande):
+        """
+        Restaure le stock des produits commandés à leur quantité initiale
+        """
+        details = commande.details_commandes.all()
+        for detail in details:
+            # Augmenter le stock du produit de la quantité commandée
+            detail.produit.quantite_produit_disponible += detail.quantite
+            detail.produit.save()

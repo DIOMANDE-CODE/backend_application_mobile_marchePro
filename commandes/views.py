@@ -50,14 +50,14 @@ def creer_commande(request):
 @permission_classes([IsAuthenticated])
 def liste_commande(request):
     try:
-        commandes = Commande.objects.filter(date_creation__date=date.today())
+        commandes = Commande.objects.filter(date_creation__date=date.today()).order_by('-date_creation')
         
-        limit = request.GET.get("limit","7")
-        offset = request.GET.get("offset","O")
+        limit = request.GET.get("limit","10")
+        offset = request.GET.get("offset","0")
 
         # Pagination
         pagination = LimitOffsetPagination()
-        pagination.default_limit = 7
+        pagination.default_limit = 10
         commandes_page = pagination.paginate_queryset(commandes,request)
         serializer = VoirCommandeSerializer(commandes_page, many=True)
         pagination_response = pagination.get_paginated_response(serializer.data)
@@ -88,11 +88,21 @@ def liste_commande_par_vendeur(request):
     else:
         try:
             commandes = Commande.objects.filter(utilisateur=user,date_commande__date=date.today()).order_by('-date_commande')
-            serializer = VoirCommandeSerializer(commandes, many=True)
+
+            limit = request.GET.get("limit","10")
+            offset = request.GET.get("offset","0")
+
+            # Pagination
+            pagination = LimitOffsetPagination()
+            pagination.default_limit = 10
+            commandes_page = pagination.paginate_queryset(commandes,request)
+            serializer = VoirCommandeSerializer(commandes_page, many=True)
+            pagination_response = pagination.get_paginated_response(serializer.data)
+            response_data = pagination_response.data
             return Response({
                 "success":True,
-                "data":serializer.data
-            },status=200)
+                "data":response_data,
+            }, status=status.HTTP_200_OK)
         except Exception as e :
             return Response({
                 "success":False,

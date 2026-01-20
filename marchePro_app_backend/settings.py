@@ -16,6 +16,8 @@ from decouple import config, Csv
 from dotenv import load_dotenv
 load_dotenv()
 
+version='1.0.1'
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -30,7 +32,6 @@ SECRET_KEY = 'django-insecure-q9md!#_b8)rl(qie9dfn-(q=v%q4e!(x@q7+*q-4q0q%b!tes#
 DEBUG = True
 
 ALLOWED_HOSTS = []
-
 
 # Application definition
 
