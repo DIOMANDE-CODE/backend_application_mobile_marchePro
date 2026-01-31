@@ -58,32 +58,27 @@ class Produit(models.Model):
     def make_thumbnail(self):
         if self.image_produit:
             response = requests.get(self.image_produit.url)
-            img = Image.open(BytesIO(response.content))
 
-            # Si l'image a un canal alpha, on convertit en RGB
-            if img.mode in ("RGBA", "P"):
-                img = img.convert("RGB")
+            # Vérifier que la réponse est bien une image
+            if response.status_code == 200 and "image" in response.headers.get("Content-Type", ""):
+                img = Image.open(BytesIO(response.content))
 
-            img.thumbnail((200, 200))
+                if img.mode in ("RGBA", "P"):
+                    img = img.convert("RGB")
 
-            thumb_io = BytesIO()
+                img.thumbnail((200, 200))
+                thumb_io = BytesIO()
+                img.save(thumb_io, format="JPEG", quality=80)
 
-            # Choisir le format selon le mode
-            format = "JPEG"
-            if img.mode in ("RGBA", "P"):
-                format = "PNG"
+                # Upload vers Cloudinary
+                result = cloudinary.uploader.upload(
+                    thumb_io.getvalue(),
+                    folder="mes_projets/MarchéPro/produits/thumbnails/",
+                    public_id=f"thumb_{self.identifiant_produit}"
+                )
 
-            img.save(thumb_io, format=format, quality=80)
-
-            # Upload vers Cloudinary
-            result = cloudinary.uploader.upload(
-                thumb_io.getvalue(),
-                folder="mes_projets/MarchéPro/produits/thumbnails/",
-                public_id=f"thumb_{self.identifiant_produit}"
-            )
-
-            # Stocker l’URL de la miniature
-            self.thumbnail = result["secure_url"]
+                # Stocker l’URL publique
+                self.thumbnail_url = result["secure_url"]
 
     def save(self, *args, **kwargs):
         self.clean()

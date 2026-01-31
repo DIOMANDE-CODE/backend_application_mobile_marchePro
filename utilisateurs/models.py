@@ -82,23 +82,25 @@ class Utilisateur(AbstractBaseUser, PermissionsMixin):
 
     def make_thumbnail(self):
         if self.photo_profil_utilisateur:
-            response = requests.get(self.photo_profil_utilisateur.url)
-            img = Image.open(BytesIO(response.content))
-            img.convert("RGB")
-            img.thumbnail((200, 200))
+            url = self.photo_profil_utilisateur.url
+            response = requests.get(url)
 
-            thumb_io = BytesIO()
-            img.save(thumb_io, format="JPEG", quality=80)
+            # Vérifier que la réponse est bien une image
+            if response.status_code == 200 and "image" in response.headers.get("Content-Type", ""):
+                img = Image.open(BytesIO(response.content))
+                if img.mode in ("RGBA", "P"):
+                    img = img.convert("RGB")
 
-            # Upload vers Cloudinary
-            result = cloudinary.uploader.upload(
-                thumb_io.getvalue(),
-                folder="mes_projets/MarchéPro/utilisateurs/thumbnails/",
-                public_id=f"thumb_{self.identifiant_utilisateur}"
-            )
+                img.thumbnail((200, 200))
+                thumb_io = BytesIO()
+                img.save(thumb_io, format="JPEG", quality=80)
 
-            # Stocker l’URL ou le public_id dans le champ thumbnail
-            self.thumbnail = result["secure_url"]
+                result = cloudinary.uploader.upload(
+                    thumb_io.getvalue(),
+                    folder="mes_projets/MarchéPro/utilisateurs/thumbnails/",
+                    public_id=f"thumb_{self.identifiant_utilisateur}"
+                )
+                self.thumbnail_url = result["secure_url"]
 
             
     def save(self, *args, **kwargs):
