@@ -37,9 +37,7 @@ class Produit(models.Model):
         null=True,
     )
     
-    thumbnail = CloudinaryField(
-        'thumbnail',
-        folder='mes_projets/MarchéPro/produits/thumbnails/',
+    thumbnail = models.URLField(
         blank=True,
         null=True,
         editable=False,

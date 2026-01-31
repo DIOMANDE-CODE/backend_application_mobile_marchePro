@@ -60,9 +60,7 @@ class Utilisateur(AbstractBaseUser, PermissionsMixin):
     email_utilisateur = models.EmailField(max_length=50, unique=True, verbose_name="Email", blank=True, null=True)
     nom_utilisateur = models.CharField(max_length=150, blank=True, null=True, verbose_name="Nom utilisateur")
     photo_profil_utilisateur = CloudinaryField('photo_profil',folder='mes_projets/MarchéPro/utilisateurs/photos_profil/', default=photo_profil_par_defaut, blank=True, null=True)
-    thumbnail = CloudinaryField(
-        'thumbnail',
-        folder='mes_projets/MarchéPro/utilisateurs/thumbnails/',
+    thumbnail = models.URLField(
         blank=True,
         null=True,
         editable=False,
@@ -100,7 +98,7 @@ class Utilisateur(AbstractBaseUser, PermissionsMixin):
             )
 
             # Stocker l’URL ou le public_id dans le champ thumbnail
-            self.thumbnail = result["public_id"]
+            self.thumbnail = result["secure_url"]
 
             
     def save(self, *args, **kwargs):
