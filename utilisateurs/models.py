@@ -59,33 +59,33 @@ class Utilisateur(AbstractBaseUser, PermissionsMixin):
     identifiant_utilisateur = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     email_utilisateur = models.EmailField(max_length=50, unique=True, verbose_name="Email", blank=True, null=True)
     nom_utilisateur = models.CharField(max_length=150, blank=True, null=True, verbose_name="Nom utilisateur")
-    photo_profil_utilisateur = CloudinaryField('photo_profil',folder='mes_projets/MarchéPro/utilisateurs/photos_profil/', default=photo_profil_par_defaut, blank=True, null=True)
-    thumbnail = models.URLField(
+    photo_profil_utilisateur = CloudinaryField(
+        'photo_profil',
+        folder='mes_projets/MarchéPro/utilisateurs/photos_profil/',
+        default=photo_profil_par_defaut,
         blank=True,
-        null=True,
-        editable=False,
+        null=True
     )
-    numero_telephone_utilisateur = models.CharField(max_length=15, validators=[verification_numero],null=True, blank=True, verbose_name="Numero de téléphone")
+    thumbnail = models.URLField(blank=True, null=True, editable=False)
+
+    numero_telephone_utilisateur = models.CharField(max_length=15, validators=[verification_numero], null=True, blank=True, verbose_name="Numero de téléphone")
     role = models.CharField(max_length=10, choices=ROLE_CHOICES, default="vendeur", verbose_name="role utilisateur")
     date_creation = models.DateTimeField(auto_now_add=True)
-    date_modification = models.DateTimeField(auto_now = True)
+    date_modification = models.DateTimeField(auto_now=True)
 
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
     is_superuser = models.BooleanField(default=False)
 
-    objects=UtilisateurManager()
+    objects = UtilisateurManager()
 
-    # Connexion par email
     USERNAME_FIELD = "email_utilisateur"
-
 
     def make_thumbnail(self):
         if self.photo_profil_utilisateur:
             url = self.photo_profil_utilisateur.url
             response = requests.get(url)
 
-            # Vérifier que la réponse est bien une image
             if response.status_code == 200 and "image" in response.headers.get("Content-Type", ""):
                 img = Image.open(BytesIO(response.content))
                 if img.mode in ("RGBA", "P"):
@@ -100,17 +100,24 @@ class Utilisateur(AbstractBaseUser, PermissionsMixin):
                     folder="mes_projets/MarchéPro/utilisateurs/thumbnails/",
                     public_id=f"thumb_{self.identifiant_utilisateur}"
                 )
-                self.thumbnail_url = result["secure_url"]
+                # Stocker l’URL publique dans le champ thumbnail
+                self.thumbnail = result["secure_url"]
 
-            
     def save(self, *args, **kwargs):
+        old_image_url = None
+        if self.pk:
+            try:
+                old_instance = Utilisateur.objects.get(pk=self.pk)
+                if old_instance.photo_profil_utilisateur:
+                    old_image_url = old_instance.photo_profil_utilisateur.url
+            except Utilisateur.DoesNotExist:
+                pass
+
         super().save(*args, **kwargs)
 
-        # Génération automatique de la miniature
-        if self.photo_profil_utilisateur and not self.thumbnail:
-            self.make_thumbnail()
-            super().save(update_fields=["thumbnail"])
-
-        if self.photo_profil_utilisateur and self.thumbnail:
-            self.make_thumbnail()
-            super().save(update_fields=["thumbnail"])
+        # Génération automatique de la miniature si nécessaire
+        if self.photo_profil_utilisateur:
+            current_image_url = self.photo_profil_utilisateur.url
+            if not self.thumbnail or old_image_url != current_image_url:
+                self.make_thumbnail()
+                super().save(update_fields=["thumbnail"])

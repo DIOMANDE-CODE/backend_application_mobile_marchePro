@@ -26,7 +26,7 @@ class Categorie(models.Model):
 
 
 class Produit(models.Model):
-    identifiant_produit = models.UUIDField(default=uuid.uuid4, editable=False, unique=True )
+    identifiant_produit = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     nom_produit = models.CharField(max_length=50, unique=True)
 
     image_produit = CloudinaryField(
@@ -36,33 +36,23 @@ class Produit(models.Model):
         blank=True,
         null=True,
     )
-    
-    thumbnail = models.URLField(
-        blank=True,
-        null=True,
-        editable=False,
-    )
-    description_produit = models.TextField(blank=True, null=True, verbose_name="Description produit")
-    prix_unitaire_produit = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Prix unitaire produit", validators=[MinValueValidator(0)])
-    quantite_produit_disponible = models.IntegerField(verbose_name="quantite produit disponible", validators=[MinValueValidator(0)])
-    seuil_alerte_produit = models.IntegerField(verbose_name="Quantite alerte du produit", validators=[MinValueValidator(0)])
-    categorie_produit = models.ForeignKey(Categorie, on_delete=models.CASCADE, verbose_name="Categorie du produit", related_name="categories")
+
+    thumbnail = models.URLField(blank=True, null=True, editable=False)
+
+    description_produit = models.TextField(blank=True, null=True)
+    prix_unitaire_produit = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)])
+    quantite_produit_disponible = models.IntegerField(validators=[MinValueValidator(0)])
+    seuil_alerte_produit = models.IntegerField(validators=[MinValueValidator(0)])
+    categorie_produit = models.ForeignKey(Categorie, on_delete=models.CASCADE, related_name="categories")
 
     date_creation = models.DateTimeField(auto_now_add=True)
     date_modification = models.DateTimeField(auto_now=True)
 
-    def clean(self):
-        if self.quantite_produit_disponible < 0:
-            raise ValidationError("La quantité disponible ne peut pas être négative.")
-
     def make_thumbnail(self):
         if self.image_produit:
             response = requests.get(self.image_produit.url)
-
-            # Vérifier que la réponse est bien une image
             if response.status_code == 200 and "image" in response.headers.get("Content-Type", ""):
                 img = Image.open(BytesIO(response.content))
-
                 if img.mode in ("RGBA", "P"):
                     img = img.convert("RGB")
 
@@ -70,28 +60,33 @@ class Produit(models.Model):
                 thumb_io = BytesIO()
                 img.save(thumb_io, format="JPEG", quality=80)
 
-                # Upload vers Cloudinary
                 result = cloudinary.uploader.upload(
                     thumb_io.getvalue(),
                     folder="mes_projets/MarchéPro/produits/thumbnails/",
                     public_id=f"thumb_{self.identifiant_produit}"
                 )
 
-                # Stocker l’URL publique
-                self.thumbnail_url = result["secure_url"]
+                # Stocker l’URL publique dans le champ thumbnail
+                self.thumbnail = result["secure_url"]
 
     def save(self, *args, **kwargs):
+        old_image_url = None
+        if self.pk:
+            try:
+                old_instance = Produit.objects.get(pk=self.pk)
+                if old_instance.image_produit:
+                    old_image_url = old_instance.image_produit.url
+            except Produit.DoesNotExist:
+                pass
+
         self.clean()
         super().save(*args, **kwargs)
 
-        # Génération automatique de la miniature
-        if self.image_produit and not self.thumbnail:
-            self.make_thumbnail()
-            super().save(update_fields=["thumbnail"])
-
-        if self.image_produit and self.thumbnail:
-            self.make_thumbnail()
-            super().save(update_fields=["thumbnail"])
+        if self.image_produit:
+            current_image_url = self.image_produit.url
+            if not self.thumbnail or old_image_url != current_image_url:
+                self.make_thumbnail()
+                super().save(update_fields=["thumbnail"])
 
         # Vérification automatique du stock faible
         if self.quantite_produit_disponible <= self.seuil_alerte_produit:
