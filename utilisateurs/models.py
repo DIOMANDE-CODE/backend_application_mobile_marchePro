@@ -5,13 +5,16 @@ import uuid
 from PIL import Image
 import os
 from io import BytesIO
-from django.core.files.base import ContentFile
+from cloudinary.models import CloudinaryField
+import requests
+import cloudinary.uploader
+
 
 # Create your models here.
 
 # Définition de la photo de profil par defaut
 def photo_profil_par_defaut():
-    return 'media/logo_marchePro.png'
+    return 'https://res.cloudinary.com/darkqhocp/image/upload/v1769821349/logo_marchePro_ywj7k5.png'
 
 # Definition des roles de l'utilisateur
 ROLE_CHOICES = (
@@ -56,13 +59,13 @@ class Utilisateur(AbstractBaseUser, PermissionsMixin):
     identifiant_utilisateur = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     email_utilisateur = models.EmailField(max_length=50, unique=True, verbose_name="Email", blank=True, null=True)
     nom_utilisateur = models.CharField(max_length=150, blank=True, null=True, verbose_name="Nom utilisateur")
-    photo_profil_utilisateur = models.ImageField(upload_to='media/photo_profil_utilisateur/', default=photo_profil_par_defaut, blank=True, null=True, verbose_name='Photo de profil utilisateur')
-    thumbnail = models.ImageField(
-        upload_to='media/photo_profil_utilisateur/thumbnails/',
+    photo_profil_utilisateur = CloudinaryField('photo_profil',folder='mes_projets/MarchéPro/utilisateurs/photos_profil/', default=photo_profil_par_defaut, blank=True, null=True)
+    thumbnail = CloudinaryField(
+        'thumbnail',
+        folder='mes_projets/MarchéPro/utilisateurs/thumbnails/',
         blank=True,
         null=True,
         editable=False,
-        verbose_name='Photo Profil Miniature'
     )
     numero_telephone_utilisateur = models.CharField(max_length=15, validators=[verification_numero],null=True, blank=True, verbose_name="Numero de téléphone")
     role = models.CharField(max_length=10, choices=ROLE_CHOICES, default="vendeur", verbose_name="role utilisateur")
@@ -78,25 +81,36 @@ class Utilisateur(AbstractBaseUser, PermissionsMixin):
     # Connexion par email
     USERNAME_FIELD = "email_utilisateur"
 
+
     def make_thumbnail(self):
         if self.photo_profil_utilisateur:
-            img = Image.open(self.photo_profil_utilisateur)
-            img.convert("RGB")  # assure un format compatible
-            img.thumbnail((200, 200))  # dimensions max
+            response = requests.get(self.photo_profil_utilisateur.url)
+            img = Image.open(BytesIO(response.content))
+            img.convert("RGB")
+            img.thumbnail((200, 200))
 
             thumb_io = BytesIO()
             img.save(thumb_io, format="JPEG", quality=80)
 
-            thumb_name = os.path.basename(self.photo_profil_utilisateur.name)
-            self.thumbnail.save(
-                f"thumb_{thumb_name}",
-                ContentFile(thumb_io.getvalue()),
-                save=False
+            # Upload vers Cloudinary
+            result = cloudinary.uploader.upload(
+                thumb_io.getvalue(),
+                folder="mes_projets/MarchéPro/utilisateurs/thumbnails/",
+                public_id=f"thumb_{self.identifiant_utilisateur}"
             )
+
+            # Stocker l’URL ou le public_id dans le champ thumbnail
+            self.thumbnail = result["public_id"]
+
+            
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
 
         # Génération automatique de la miniature
         if self.photo_profil_utilisateur and not self.thumbnail:
+            self.make_thumbnail()
+            super().save(update_fields=["thumbnail"])
+
+        if self.photo_profil_utilisateur and self.thumbnail:
             self.make_thumbnail()
             super().save(update_fields=["thumbnail"])

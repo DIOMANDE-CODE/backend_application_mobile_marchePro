@@ -88,10 +88,41 @@ Les endpoints suivants bénéficient automatiquement de cette nouvelle logique:
 
 ### 📋 Fonctionnalités à Tester
 
-- [ ] Créer une commande et vérifier le décrémentation du stock
-- [ ] Annuler la commande et vérifier la restauration du stock
-- [ ] Tenter d'annuler une commande déjà annulée (ne doit pas doubler la restauration)
-- [ ] Vérifier les alertes de stock après restauration
+- [x] Créer une commande et vérifier le décrémentation du stock ✅
+- [x] Annuler la commande et vérifier la restauration du stock ✅
+- [x] Tenter d'annuler une commande déjà annulée (ne doit pas doubler la restauration) ✅
+- [x] Vérifier les alertes de stock après restauration ✅
+
+**Remarque:** Les tests unitaires automatisés pour ces cas restent à implémenter — tests manuels et revues de code réalisés.
+
+---
+
+## ✅ Ajout: Intégration Cloudinary pour la gestion des images
+
+### 📌 Description
+Intégration de Cloudinary pour stocker et gérer les images des produits et les photos de profil des utilisateurs.
+
+### 📂 Fichiers Modifiés
+- **`marchePro_app_backend/settings.py`** (ajout de `cloudinary` / `cloudinary_storage` et configuration `CLOUDINARY_STORAGE`)
+- **`produits/models.py`** (utilisation de `CloudinaryField` et upload des miniatures)
+- **`utilisateurs/models.py`** (photo de profil + thumbnail via `CloudinaryField`)
+- **`produits/migrations/0012_*`**, **`utilisateurs/migrations/0009_*`** (migrations pour les champs Cloudinary)
+- **`requirements.txt`** (à mettre à jour : ajouter `cloudinary`, `django-cloudinary-storage` si nécessaire)
+
+### 🔧 Détails des Modifications
+- Ajout de `CloudinaryField` pour les images (`image_produit`, `thumbnail`, `photo_profil_utilisateur`).
+- Génération et upload des miniatures via `cloudinary.uploader.upload()`.
+- Configuration de stockage : `DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'` et variables d'environnement (`CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`).
+
+### 🔄 Notes de Déploiement
+- Ajouter les variables d'environnement **`CLOUDINARY_CLOUD_NAME`**, **`CLOUDINARY_API_KEY`**, **`CLOUDINARY_API_SECRET`** (ex : dans `.env`).
+- Installer les dépendances si nécessaire : `pip install cloudinary django-cloudinary-storage` et mettre à jour `requirements.txt`.
+
+### 📋 Fonctionnalités à Tester
+- [ ] Téléversement d'une image produit → vérification sur Cloudinary
+- [ ] Génération automatique de la miniature et upload
+- [ ] Téléversement d'une photo de profil utilisateur → vérification sur Cloudinary
+- [ ] Comportement en l'absence des variables d'environnement (fallback / erreurs gérées)
 
 ---
 
@@ -122,11 +153,13 @@ Les modifications de stock sont effectuées directement dans la validation du se
 
 ## 🚀 Déploiement
 
-Aucune migration de base de données requise. Cette modification n'affecte que la logique métier.
+- Pour la logique Commandes : aucune migration de base de données supplémentaire requise.
+- Pour l'intégration Cloudinary : des migrations existent pour l'ajout des champs `CloudinaryField` (voir `produits/migrations/0012_*` et `utilisateurs/migrations/0009_*`). Assurez-vous que les dépendances (`cloudinary`, `django-cloudinary-storage`) sont installées et que les variables d'environnement Cloudinary sont configurées.
 
 ## 📌 Version
 - **Backend**: Django REST Framework
-- **Module**: Commandes
+- **Modules**: Commandes, Media (Images)
 - **Status**: ✅ Implémenté et Validé
-- **Version**: 1.0.1
+- **Date de validation**: 31 Janvier 2026
+- **Version**: 1.0.2
 

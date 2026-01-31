@@ -6,9 +6,12 @@ from PIL import Image
 import os
 from io import BytesIO
 from django.core.files.base import ContentFile
+from cloudinary.models import CloudinaryField
+import requests
+import cloudinary.uploader
 
 def image_produit_par_defaut():
-    return 'media/logo_marchePro.png'
+    return 'https://res.cloudinary.com/darkqhocp/image/upload/v1769821349/logo_marchePro_ywj7k5.png'
 
 class Categorie(models.Model):
     identifiant_categorie = models.UUIDField(default=uuid.uuid4, editable=False, unique=True )
@@ -25,19 +28,21 @@ class Categorie(models.Model):
 class Produit(models.Model):
     identifiant_produit = models.UUIDField(default=uuid.uuid4, editable=False, unique=True )
     nom_produit = models.CharField(max_length=50, unique=True)
-    image_produit = models.ImageField(
-        upload_to='media/image_produit/',
-        default='media/logo_marchePro.png',
+
+    image_produit = CloudinaryField(
+        'image_produit',
+        folder='mes_projets/MarchéPro/produits/images/',
+        default=image_produit_par_defaut,
         blank=True,
         null=True,
-        verbose_name='Image du produit'
     )
-    thumbnail = models.ImageField(
-        upload_to='media/image_produit/thumbnails/',
+    
+    thumbnail = CloudinaryField(
+        'thumbnail',
+        folder='mes_projets/MarchéPro/produits/thumbnails/',
         blank=True,
         null=True,
         editable=False,
-        verbose_name='Image Produit Miniature'
     )
     description_produit = models.TextField(blank=True, null=True, verbose_name="Description produit")
     prix_unitaire_produit = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Prix unitaire produit", validators=[MinValueValidator(0)])
@@ -54,19 +59,33 @@ class Produit(models.Model):
 
     def make_thumbnail(self):
         if self.image_produit:
-            img = Image.open(self.image_produit)
-            img.convert("RGB")  # assure un format compatible
-            img.thumbnail((200, 200))  # dimensions max
+            response = requests.get(self.image_produit.url)
+            img = Image.open(BytesIO(response.content))
+
+            # Si l'image a un canal alpha, on convertit en RGB
+            if img.mode in ("RGBA", "P"):
+                img = img.convert("RGB")
+
+            img.thumbnail((200, 200))
 
             thumb_io = BytesIO()
-            img.save(thumb_io, format="JPEG", quality=80)
 
-            thumb_name = os.path.basename(self.image_produit.name)
-            self.thumbnail.save(
-                f"thumb_{thumb_name}",
-                ContentFile(thumb_io.getvalue()),
-                save=False
+            # Choisir le format selon le mode
+            format = "JPEG"
+            if img.mode in ("RGBA", "P"):
+                format = "PNG"
+
+            img.save(thumb_io, format=format, quality=80)
+
+            # Upload vers Cloudinary
+            result = cloudinary.uploader.upload(
+                thumb_io.getvalue(),
+                folder="mes_projets/MarchéPro/produits/thumbnails/",
+                public_id=f"thumb_{self.identifiant_produit}"
             )
+
+            # Stocker l’URL de la miniature
+            self.thumbnail = result["secure_url"]
 
     def save(self, *args, **kwargs):
         self.clean()
@@ -74,6 +93,10 @@ class Produit(models.Model):
 
         # Génération automatique de la miniature
         if self.image_produit and not self.thumbnail:
+            self.make_thumbnail()
+            super().save(update_fields=["thumbnail"])
+
+        if self.image_produit and self.thumbnail:
             self.make_thumbnail()
             super().save(update_fields=["thumbnail"])
 

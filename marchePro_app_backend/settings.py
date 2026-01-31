@@ -16,7 +16,7 @@ from decouple import config, Csv
 from dotenv import load_dotenv
 load_dotenv()
 
-version='1.0.1'
+version='1.0.2'
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -53,6 +53,10 @@ INSTALLED_APPS = [
     'produits',
     'utilisateurs',
     'ventes',
+
+    # CDN Cloudinary
+    'cloudinary',
+    'cloudinary_storage',
 ]
 
 MIDDLEWARE = [
@@ -138,7 +142,7 @@ STATIC_URL = 'static/'
 
 # Configuration pour les media
 MEDIA_URL ='/media/'
-MEDIA_ROOR = os.path.join(BASE_DIR,'media')
+MEDIA_ROOT = os.path.join(BASE_DIR,'media')
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
@@ -194,7 +198,16 @@ SPECTACULAR_SETTINGS = {
     'DESCRIPTION': 'Documentation officielle du serveur.',
 }
 
-
-
 # Compression et cache automatique des fichiers statiques
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+
+# Configuration du stockage des fichiers médias avec Cloudinary
+DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
+
+
+# Configuration Cloudinary
+CLOUDINARY_STORAGE = { 
+    'CLOUD_NAME': config("CLOUDINARY_CLOUD_NAME", default=""), 
+    'API_KEY': config("CLOUDINARY_API_KEY", default=""), 
+    'API_SECRET': config("CLOUDINARY_API_SECRET", default=""), 
+    }
